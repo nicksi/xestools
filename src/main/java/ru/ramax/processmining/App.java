@@ -11,6 +11,7 @@ import org.deckfour.xes.extension.std.XConceptExtension;
 import org.deckfour.xes.extension.std.XLifecycleExtension;
 import org.deckfour.xes.extension.std.XOrganizationalExtension;
 import org.deckfour.xes.extension.std.XTimeExtension;
+import org.deckfour.xes.factory.XFactory;
 import org.deckfour.xes.factory.XFactoryBufferedImpl;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.id.XIDFactory;
@@ -165,62 +166,88 @@ public class App
 
         String oldTrace = "";
         XTrace xTrace = xFactory.createTrace();
+        CSVRecord lastRecord = null;
+        ZoneId zoneId = ZoneId.systemDefault();
+
         try {
             for (CSVRecord record : CSVParser.parse(csv, StandardCharsets.UTF_8, csvFormat)) {
                 //System.out.println(record);
 
                 if (!record.get("Workflow Activity").equals("Screen Start")) continue;
 
+                // 11/02/2015 02:58:13 pm
+                LocalDateTime start =  LocalDateTime.parse(record.get("Workflow Start Time").toUpperCase(), DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a"));
+                LocalDateTime end =  LocalDateTime.parse(record.get("Workflow End Time").toUpperCase(), DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a"));
+
                 if (!oldTrace.equals(record.get("Module Instance ID"))) {
-                    if (!xTrace.isEmpty())
+                    if (!xTrace.isEmpty()) {
                         outputLog.add(xTrace);
+
+
+                        LocalDateTime lastend =  LocalDateTime.parse(lastRecord.get("Workflow End Time").toUpperCase(), DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a"));
+                        // add end event
+                        xTrace.add(createEvent(
+                                xFactory,
+                                "Finish transaction",
+                                "NA",
+                                "Finish transaction",
+                                "",
+                                "",
+                                lastRecord.get("Workflow ID"),
+                                lastend.atZone(zoneId).toEpochSecond(),
+                                XLifecycleExtension.StandardModel.COMPLETE
+                        ));
+                    }
+
                     xTrace = xFactory.createTrace();
+                    xConceptExtension.assignName(xTrace, record.get("Module Instance ID"));
                     oldTrace = record.get("Module Instance ID");
+
+                    // start event
+                    xTrace.add(createEvent(
+                            xFactory,
+                            "Start transaction",
+                            "NA",
+                            "Start transaction",
+                            "",
+                            "",
+                            record.get("Workflow ID"),
+                            start.atZone(zoneId).toEpochSecond(),
+                            XLifecycleExtension.StandardModel.COMPLETE
+                    ));
+
                 }
-
-                xConceptExtension.assignName(xTrace, record.get("Module Instance ID"));
-
-                XAttributeMap eventMap = xFactory.createAttributeMap();
-                eventMap.put("raw_screen", xFactory.createAttributeLiteral("rawScreen", record.get("Screen"), null));
-                eventMap.put("screen_id", xFactory.createAttributeLiteral("screenId", record.get("Screen ID"), null));
-                eventMap.put("description", xFactory.createAttributeLiteral("description", record.get("Description"), null));
-                eventMap.put("activity", xFactory.createAttributeLiteral("activity", record.get("Workflow Activity"), null));
-
-                XAttributeMap eventMap2 = xFactory.createAttributeMap();
-                eventMap2.put("raw_screen", xFactory.createAttributeLiteral("rawScreen", record.get("Screen"), null));
-                eventMap2.put("screen_id", xFactory.createAttributeLiteral("screenId", record.get("Screen ID"), null));
-                eventMap2.put("description", xFactory.createAttributeLiteral("description", record.get("Description"), null));
-                eventMap2.put("activity", xFactory.createAttributeLiteral("activity", record.get("Workflow Activity"), null));
 
                 String screen = record.get("Screen");
                 screen = screen.replaceAll("^> +", "");
                 screen = screen.replaceAll("\\d+", "#");
 
-                // 11/02/2015 02:58:13 pm
-                LocalDateTime start =  LocalDateTime.parse(record.get("Workflow Start Time").toUpperCase(), DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a"));
-                LocalDateTime end =  LocalDateTime.parse(record.get("Workflow End Time").toUpperCase(), DateTimeFormatter.ofPattern("MM/dd/yyyy hh:mm:ss a"));
-                ZoneId zoneId = ZoneId.systemDefault();
+                xTrace.add(createEvent(
+                        xFactory,
+                        screen,
+                        record.get("Screen ID"),
+                        record.get("Screen"),
+                        record.get("Description"),
+                        record.get("Workflow Activity"),
+                        record.get("Workflow ID"),
+                        start.atZone(zoneId).toEpochSecond(),
+                        XLifecycleExtension.StandardModel.START
+                ));
 
-                XEvent xEventS = xFactory.createEvent();
-                xEventS.setAttributes(eventMap);
-                        //xFactory.createEvent(XIDFactory.instance().createId(), eventMap);
-                xConceptExtension.assignName(xEventS, screen);
-                xOrganizationalExtension.assignResource(xEventS, record.get("Workflow ID"));
-                xTimeExtension.assignTimestamp(xEventS, start.atZone(zoneId).toEpochSecond()*1000);
-                xLifecycleExtension.assignStandardTransition(xEventS, XLifecycleExtension.StandardModel.START);
-
-                xTrace.add(xEventS);
-
-                XEvent xEventE = xFactory.createEvent(); //  xFactory.createEvent(XIDFactory.instance().createId(), eventMap);
-                xEventE.setAttributes(eventMap2);
-                xConceptExtension.assignName(xEventE, screen);
-                xOrganizationalExtension.assignResource(xEventE, record.get("Workflow ID"));
-                xTimeExtension.assignTimestamp(xEventE, end.atZone(zoneId).toEpochSecond()*1000);
-                xLifecycleExtension.assignStandardTransition(xEventE, XLifecycleExtension.StandardModel.COMPLETE);
-
-                xTrace.add(xEventE);
+                xTrace.add(createEvent(
+                        xFactory,
+                        screen,
+                        record.get("Screen ID"),
+                        record.get("Screen"),
+                        record.get("Description"),
+                        record.get("Workflow Activity"),
+                        record.get("Workflow ID"),
+                        end.atZone(zoneId).toEpochSecond(),
+                        XLifecycleExtension.StandardModel.COMPLETE
+                ));
 
                 count++;
+                lastRecord = record;
             }
 
         }
@@ -268,5 +295,23 @@ public class App
         HelpFormatter formatter = new HelpFormatter();
         String header = "Convert CSV from JNOA into XES\n\n";
         formatter.printHelp("knoa2xes [input-file] [output-file]", header, options, "", true);
+    }
+
+    private static  XEvent createEvent(XFactory xFactory, String screen, String screenId, String rawScreen, String description,
+                                       String activity, String resource, Long time, XLifecycleExtension.StandardModel stage) {
+        XEvent event = xFactory.createEvent();
+
+        XAttributeMap eventMap = xFactory.createAttributeMap();
+        eventMap.put("raw_screen", xFactory.createAttributeLiteral("rawScreen", rawScreen, null));
+        eventMap.put("screen_id", xFactory.createAttributeLiteral("screenId", screenId, null));
+        eventMap.put("description", xFactory.createAttributeLiteral("description", description, null));
+        eventMap.put("activity", xFactory.createAttributeLiteral("activity", activity, null));
+
+        XConceptExtension.instance().assignName(event, screen);
+        XOrganizationalExtension.instance().assignResource(event, resource);
+        XTimeExtension.instance().assignTimestamp(event, time*1000);
+        XLifecycleExtension.instance().assignStandardTransition(event, stage);
+
+        return event;
     }
 }
