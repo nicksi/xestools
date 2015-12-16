@@ -25,9 +25,7 @@
         <dependency>
             <groupId>org.deckfour.spex</groupId>
             <artifactId>spex</artifactId>
-            <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/lib/Spex.jar</systemPath>
+            <version>1.0-RC2</version>
         </dependency>
 
         <dependency>
@@ -64,6 +62,7 @@
     </dependencies>
 
     <build>
+        <finalName>knoa2xes</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -74,35 +73,28 @@
                     <target>1.8</target>
                 </configuration>
             </plugin>
-            <!-- Maven Assembly Plugin -->
+
+            <!-- Copy project dependency -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.6</version>
-                <configuration>
-                    <!-- get all project dependencies -->
-                    <descriptorRefs>
-                        <descriptorRef>jar-with-dependencies</descriptorRef>
-                    </descriptorRefs>
-                    <!-- MainClass in mainfest make a executable jar -->
-                    <archive>
-                        <manifest>
-                            <mainClass>ru.ramax.processmining.App</mainClass>
-                        </manifest>
-                    </archive>
-
-                </configuration>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>2.10</version>
                 <executions>
                     <execution>
-                        <id>make-assembly</id>
-                        <!-- bind to the packaging phase -->
+                        <id>copy-dependencies</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>single</goal>
+                            <goal>copy-dependencies</goal>
                         </goals>
+                        <configuration>
+                            <!-- exclude junit, we need runtime dependency only -->
+                            <includeScope>runtime</includeScope>
+                            <outputDirectory>${project.build.directory}/dependency-jars/</outputDirectory>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
+
         </plugins>
     </build>
 
