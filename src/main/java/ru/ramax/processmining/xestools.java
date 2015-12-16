@@ -10,6 +10,7 @@ import org.deckfour.xes.model.buffered.XTraceIterator;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Map;
 
 /**
@@ -44,7 +45,7 @@ public class XEStools {
      * @param xTrace
      * @return LocalDateTime
      */
-    public LocalDateTime traceStartTime(@NonNull XTrace xTrace) {
+    public LocalDateTime traceStartTime(@NonNull XTrace xTrace, String eventName) {
         LocalDateTime startTime = LocalDateTime.MIN;
 
         String index = getIndex(xTrace);
@@ -53,14 +54,17 @@ public class XEStools {
         }
         else {
             if (xTrace.size() > 0) {
-                XEvent xEvent = xTrace.get(0); // TODO switch to minimal date time, not first
-                if (xEvent != null && xEvent.hasAttributes()) {
-                    XAttributeMap xAttributeMap = xEvent.getAttributes();
-                    for (XAttribute attribute : xAttributeMap.values()) {
-                        if (attribute.getKey().equals("time:timestamp")) {
-                            startTime = LocalDateTime.ofEpochSecond(((XAttributeTimestamp) attribute).getValueMillis() / 1000, 0, ZoneOffset.ofHours(0));
-                            traceStartTime.put(index, startTime);
-                            break;
+                ListIterator events = xTrace.listIterator();
+                while (events.hasNext()) {
+                    XEvent xEvent = xTrace.get(0); // TODO switch to minimal date time, not first
+                    if (xEvent != null && xEvent.hasAttributes()) {
+                        XAttributeMap xAttributeMap = xEvent.getAttributes();
+                        for (XAttribute attribute : xAttributeMap.values()) {
+                            if (attribute.getKey().equals("time:timestamp")) {
+                                startTime = LocalDateTime.ofEpochSecond(((XAttributeTimestamp) attribute).getValueMillis() / 1000, 0, ZoneOffset.ofHours(0));
+                                traceStartTime.put(index, startTime);
+                                break;
+                            }
                         }
                     }
                 }
@@ -103,7 +107,35 @@ public class XEStools {
      * @param index Concept name to find
      * @return
      */
-    public LocalDateTime traceStartTime(@NonNull String index) {
+    public LocalDateTime traceEndTime(@NonNull String index) {
+        LocalDateTime endTime = LocalDateTime.MAX;
+
+        XTrace xTrace = getXTrace(index);
+        if (xTrace != null)
+        {
+            endTime = traceEndTime(xTrace);
+        }
+
+        return endTime;
+    }
+
+    /***
+     * Find the last timestamp of the trace based on trace concept:name
+     * @param xTrace
+     * @return
+     */
+    public LocalDateTime traceEndTime(@NonNull XTrace xTrace, String eventName) {
+        LocalDateTime endTime = LocalDateTime.MAX;
+
+        return  endTime;
+    }
+
+    /***
+     * Find the last timestamp of the trace based on trace concept:name
+     * @param index Concept name to find
+     * @return
+     */
+    public LocalDateTime traceEndTime(@NonNull String index, String eventName) {
         LocalDateTime endTime = LocalDateTime.MAX;
 
         XTrace xTrace = getXTrace(index);
@@ -147,7 +179,19 @@ public class XEStools {
         return duration;
     }
 
-    public Map<String, Long> getDurations(String filter) {
+    public Map<String, Long> getTraceDurations() {
+
+    }
+
+    public Map<String, Long> getTraceDurationsWithResource(String filter) {
+
+    }
+
+    public Map<String, Long> getTraceDurationsWithResource(String filter) {
+
+    }
+
+    public Map<String, Long> getTraceDurationsWithResource(String filter) {
 
     }
 
