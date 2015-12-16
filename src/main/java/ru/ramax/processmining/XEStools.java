@@ -30,8 +30,7 @@ public class XEStools {
     private Map<String, Integer> name2index = Maps.newHashMap();
 
     public XEStools(@NonNull XLog xlog) {
-        this.xlog = xlog;
-
+        setXLog(xlog);
     }
 
     /***
