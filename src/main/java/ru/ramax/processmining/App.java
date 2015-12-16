@@ -1,5 +1,12 @@
 package ru.ramax.processmining;
 
+import javafx.application.Application;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
 import org.apache.commons.cli.*;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -37,8 +44,10 @@ import java.util.regex.Pattern;
  * Hello world!
  *
  */
-public class App 
+public class App extends Application
 {
+
+
     public static void main( String[] args )
     {
         Options options = new Options();
@@ -81,6 +90,13 @@ public class App
             .build()
         );
 
+        options.addOption(
+            Option.builder("gui")
+                .longOpt("start-gui")
+                .desc("Start App GUI")
+            .build()
+        );
+
         CommandLineParser parser = new DefaultParser();
         try {
             // parse the command line arguments
@@ -92,6 +108,9 @@ public class App
                     ( ( !line.hasOption("i") || !line.hasOption("o") ) && other.size() != 2)
                     ) {
                 printHelp(options);
+            }
+            else if (line.hasOption("gui")) {
+                launch(args);
             }
             else {
                 // check for input file
@@ -313,5 +332,13 @@ public class App
         XLifecycleExtension.instance().assignStandardTransition(event, stage);
 
         return event;
+    }
+
+    @Override
+    public void start(Stage primaryStage) throws Exception {
+
+        primaryStage.setTitle("KNOA Event Log Analytics");
+        primaryStage.show();
+
     }
 }
