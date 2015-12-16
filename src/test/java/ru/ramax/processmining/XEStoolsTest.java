@@ -11,9 +11,15 @@ import org.deckfour.xes.model.XAttributeMap;
 import org.deckfour.xes.model.XEvent;
 import org.deckfour.xes.model.XLog;
 import org.deckfour.xes.model.XTrace;
+import org.deckfour.xes.out.XesXmlGZIPSerializer;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -26,6 +32,9 @@ import static junit.framework.TestCase.assertTrue;
  */
 public class XEStoolsTest
 {
+    @Rule
+    public TemporaryFolder tempFolder = new TemporaryFolder();
+
     private XLog emptyLog;
     private XFactoryNaiveImpl xFactory;
 
@@ -71,6 +80,49 @@ public class XEStoolsTest
         XLog xLog = xeStools.getXlog();
         assertNotNull("Must be non null", xLog);
         assertTrue("tools must return log", XLog.class.isInstance(xLog));
+
+    }
+
+    @Test
+    public void xesParser() throws Exception {
+        XLog xLog = (XLog) emptyLog.clone();
+
+        XTrace xTrace = xFactory.createTrace();
+        XConceptExtension.instance().assignName(xTrace,"test");
+        xLog.add(xTrace);
+
+        XEvent xEvent1 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent1, "event1");
+        XTimeExtension.instance().assignTimestamp(xEvent1, Instant.parse("2015-01-01T10:30:00.00Z").toEpochMilli());
+        xTrace.add(xEvent1);
+
+        XEvent xEvent2 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent2, "event2");
+        XTimeExtension.instance().assignTimestamp(xEvent2, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
+        xTrace.add(xEvent2);
+
+        XEvent xEvent3 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent3, "event1");
+        XTimeExtension.instance().assignTimestamp(xEvent3, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
+        xTrace.add(xEvent3);
+
+        String filename = "test.xes.gz";
+        File log = tempFolder.newFile(filename);
+        OutputStream outputStream = new FileOutputStream(log);
+        XesXmlGZIPSerializer serializer = new XesXmlGZIPSerializer();
+        serializer.serialize(xLog, outputStream);
+        outputStream.flush();
+        outputStream.close();
+
+        XEStools parsed = new XEStools();
+        boolean result = parsed.parseLog(tempFolder.getRoot().toString() + "/123");
+        assertTrue("Parsing shoudl fail", !result);
+        result = parsed.parseLog(tempFolder.getRoot().toString() + "/" + filename);
+        assertTrue("Result should be true", result);
+        assertNotNull("Log should be parsed", parsed.getXlog());
+        assertTrue("Parsed log contains one trace, got "+ parsed.getXLogSize(), parsed.getXLogSize() == 1);
+        assertNotNull("Parsed log has test trace", parsed.getXTrace("test"));
+
 
     }
 

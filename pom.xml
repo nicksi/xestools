@@ -62,7 +62,7 @@
     </dependencies>
 
     <build>
-        <finalName>knoa2xes</finalName>
+        <finalName>xestools</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

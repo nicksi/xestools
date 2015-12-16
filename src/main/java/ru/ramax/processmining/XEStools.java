@@ -4,9 +4,12 @@ import com.google.common.collect.Maps;
 import com.sun.org.apache.xpath.internal.objects.XObject;
 import lombok.Getter;
 import lombok.NonNull;
+import org.deckfour.xes.factory.XFactoryNaiveImpl;
+import org.deckfour.xes.in.XesXmlGZIPParser;
 import org.deckfour.xes.model.*;
 import org.deckfour.xes.model.buffered.XTraceIterator;
 
+import java.io.*;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -29,8 +32,29 @@ public class XEStools {
     // cache to search for trace by concept:name
     private Map<String, Integer> name2index = Maps.newHashMap();
 
+    public XEStools() {
+        this.xlog = null;
+    }
+
     public XEStools(@NonNull XLog xlog) {
         setXLog(xlog);
+    }
+
+    public boolean parseLog(String filename) {
+        try {
+            XesXmlGZIPParser parser = new XesXmlGZIPParser(new XFactoryNaiveImpl());
+            File file = new File(filename);
+            if (parser.canParse(file)) {
+                InputStream inputStream = new FileInputStream(file);
+                this.xlog = parser.parse(inputStream).get(0);
+                return true;
+            }
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
     }
 
     /***
@@ -41,6 +65,15 @@ public class XEStools {
         this.xlog = xLog;
         clearCache();
     }
+
+    /***
+     * Return number of traces in log
+     * @return
+     */
+    public int getXLogSize() {
+        return xlog.size();
+    }
+
 
     /***
      * Find the start timestamp of the trace
