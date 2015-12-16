@@ -11,18 +11,25 @@ import org.deckfour.xes.model.XAttributeMap;
 import org.deckfour.xes.model.XEvent;
 import org.deckfour.xes.model.XLog;
 import org.deckfour.xes.model.XTrace;
+import org.junit.Before;
+import org.junit.Test;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.Map;
+
+import static junit.framework.TestCase.assertNotNull;
+import static junit.framework.TestCase.assertTrue;
 
 /**
  * Unit test for simple App.
  */
-public class XEStoolsTest extends TestCase
+public class XEStoolsTest
 {
     private XLog emptyLog;
     private XFactoryNaiveImpl xFactory;
 
+    @Before
     public void setUp()
     {
         // create XLOG
@@ -55,7 +62,8 @@ public class XEStoolsTest extends TestCase
         emptyLog.getExtensions().add(xLifecycleExtension);
     }
 
-    public void testConstructor()
+    @Test
+    public void XEStoolsConstructor()
     {
         XEStools xeStools = new XEStools(emptyLog);
         assertNotNull("Failed to initilize.", xeStools);
@@ -66,7 +74,8 @@ public class XEStoolsTest extends TestCase
 
     }
 
-    public void  testTraceStart() {
+    @Test
+    public void  traceStartEndTime() {
         XEStools xeStools = new XEStools(emptyLog);
         assertNotNull("Failed to initilize.", xeStools);
 
@@ -132,7 +141,8 @@ public class XEStoolsTest extends TestCase
 
     }
 
-    public void testDuration() {
+    @Test
+    public void traceDuration() {
         XEStools xeStools = new XEStools(emptyLog);
         assertNotNull("Failed to initilize.", xeStools);
 
@@ -175,6 +185,72 @@ public class XEStoolsTest extends TestCase
 
         duration = xeStools.getTraceDuration(xTrace, "event", "event1");
         assertTrue("Test duration calculation. Expected 0 got "+duration, duration == 0);
+    }
+
+    @Test
+    public void logDurations() {
+        XEStools xeStools = new XEStools(emptyLog);
+        assertNotNull("Failed to initilize.", xeStools);
+
+        LocalDateTime start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+
+        // add some trace with event and reset utils
+        XLog xLog = (XLog) emptyLog.clone();
+
+        XTrace xTrace = xFactory.createTrace();
+        XConceptExtension.instance().assignName(xTrace,"test");
+        xLog.add(xTrace);
+        xeStools.setXLog(xLog);
+        start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+
+        XEvent xEvent1 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent1, "event1");
+        XTimeExtension.instance().assignTimestamp(xEvent1, Instant.parse("2015-01-01T10:30:00.00Z").toEpochMilli());
+        XOrganizationalExtension.instance().assignResource(xEvent1, "RES001");
+        xTrace.add(xEvent1);
+
+        XEvent xEvent2 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent2, "event2");
+        XOrganizationalExtension.instance().assignResource(xEvent1, "RES001");
+        XTimeExtension.instance().assignTimestamp(xEvent2, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
+        xTrace.add(xEvent2);
+
+        XEvent xEvent3 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent3, "event1");
+        XOrganizationalExtension.instance().assignResource(xEvent1, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent3, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
+        xTrace.add(xEvent3);
+
+        XTrace xTrace2 = xFactory.createTrace();
+        XConceptExtension.instance().assignName(xTrace2,"test2");
+        xLog.add(xTrace2);
+        XEvent xEvent4 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent4, "event1");
+        XTimeExtension.instance().assignTimestamp(xEvent4, Instant.parse("2015-01-01T10:30:00.00Z").toEpochMilli());
+        XOrganizationalExtension.instance().assignResource(xEvent4, "RES001");
+        xTrace2.add(xEvent4);
+
+        XEvent xEvent5 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent5, "event2");
+        XOrganizationalExtension.instance().assignResource(xEvent4, "RES001");
+        XTimeExtension.instance().assignTimestamp(xEvent5, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
+        xTrace2.add(xEvent5);
+
+        XEvent xEvent6 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent6, "event1");
+        XOrganizationalExtension.instance().assignResource(xEvent4, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent6, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
+        xTrace2.add(xEvent6);
+
+        Map<String, Long> result = xeStools.getTraceDurations();
+        assertTrue("We expect two traces, got "+result.size(), result.size() == 2);
+        assertTrue("Test2 trace should have duration of 2400 seconds, got " + result.get("test2"), result.get("test2") == 2400);
+
+        Map<String, Long> result2 = xeStools.getTraceDurations("event1", "event1");
+        assertTrue("We expect two traces, got "+result2.size(), result2.size() == 2);
+        assertTrue("Test2 trace should have duration of 600 seconds, got " + result2.get("test2"), result2.get("test2") == 600);
 
 
     }
