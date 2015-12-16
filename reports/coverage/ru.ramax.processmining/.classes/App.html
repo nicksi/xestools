@@ -1,0 +1,400 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: App</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">ru.ramax.processmining</a> ]
+</div>
+
+<h1>Coverage Summary for Class: App (ru.ramax.processmining)</h1>
+
+<table class="coverageStats">
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Class, %
+</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">App</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 5)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 150)
+  </span>
+</td>
+</tr>
+
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;package ru.ramax.processmining;
+<i>2</i>&nbsp;
+<i>3</i>&nbsp;import org.apache.commons.cli.*;
+<i>4</i>&nbsp;import org.apache.commons.csv.CSVFormat;
+<i>5</i>&nbsp;import org.apache.commons.csv.CSVParser;
+<i>6</i>&nbsp;import org.apache.commons.csv.CSVRecord;
+<i>7</i>&nbsp;import org.deckfour.xes.classification.XEventNameClassifier;
+<i>8</i>&nbsp;import org.deckfour.xes.extension.XExtension;
+<i>9</i>&nbsp;import org.deckfour.xes.extension.XExtensionManager;
+<i>10</i>&nbsp;import org.deckfour.xes.extension.std.XConceptExtension;
+<i>11</i>&nbsp;import org.deckfour.xes.extension.std.XLifecycleExtension;
+<i>12</i>&nbsp;import org.deckfour.xes.extension.std.XOrganizationalExtension;
+<i>13</i>&nbsp;import org.deckfour.xes.extension.std.XTimeExtension;
+<i>14</i>&nbsp;import org.deckfour.xes.factory.XFactory;
+<i>15</i>&nbsp;import org.deckfour.xes.factory.XFactoryBufferedImpl;
+<i>16</i>&nbsp;import org.deckfour.xes.factory.XFactoryNaiveImpl;
+<i>17</i>&nbsp;import org.deckfour.xes.id.XIDFactory;
+<i>18</i>&nbsp;import org.deckfour.xes.info.XLogInfo;
+<i>19</i>&nbsp;import org.deckfour.xes.info.XLogInfoFactory;
+<i>20</i>&nbsp;import org.deckfour.xes.model.*;
+<i>21</i>&nbsp;import org.deckfour.xes.out.XSerializer;
+<i>22</i>&nbsp;import org.deckfour.xes.out.XesXmlGZIPSerializer;
+<i>23</i>&nbsp;import org.deckfour.xes.out.XesXmlSerializer;
+<i>24</i>&nbsp;
+<i>25</i>&nbsp;import java.io.*;
+<i>26</i>&nbsp;import java.nio.charset.StandardCharsets;
+<i>27</i>&nbsp;import java.nio.file.Files;
+<i>28</i>&nbsp;import java.time.Instant;
+<i>29</i>&nbsp;import java.time.LocalDateTime;
+<i>30</i>&nbsp;import java.time.ZoneId;
+<i>31</i>&nbsp;import java.time.format.DateTimeFormatter;
+<i>32</i>&nbsp;import java.time.temporal.ChronoField;
+<i>33</i>&nbsp;import java.util.List;
+<i>34</i>&nbsp;import java.util.regex.Pattern;
+<i>35</i>&nbsp;
+<i>36</i>&nbsp;/**
+<i>37</i>&nbsp; * Hello world!
+<i>38</i>&nbsp; *
+<i>39</i>&nbsp; */
+<b class="nc"><i>40</i>&nbsp;public class App </b>
+<i>41</i>&nbsp;{
+<i>42</i>&nbsp;    public static void main( String[] args )
+<i>43</i>&nbsp;    {
+<b class="nc"><i>44</i>&nbsp;        Options options = new Options();</b>
+<i>45</i>&nbsp;
+<b class="nc"><i>46</i>&nbsp;        options.addOption(</b>
+<b class="nc"><i>47</i>&nbsp;            Option.builder(&quot;i&quot;)</b>
+<b class="nc"><i>48</i>&nbsp;                .desc(&quot;Specify csv file from KNOA&quot;)</b>
+<b class="nc"><i>49</i>&nbsp;                .hasArg(true)</b>
+<b class="nc"><i>50</i>&nbsp;                .argName(&quot;inputFile&quot;)</b>
+<b class="nc"><i>51</i>&nbsp;                .numberOfArgs(1)</b>
+<b class="nc"><i>52</i>&nbsp;                .type(String.class)</b>
+<b class="nc"><i>53</i>&nbsp;                .longOpt(&quot;input-file&quot;)</b>
+<b class="nc"><i>54</i>&nbsp;            .build()</b>
+<i>55</i>&nbsp;        );
+<i>56</i>&nbsp;
+<b class="nc"><i>57</i>&nbsp;        options.addOption(</b>
+<b class="nc"><i>58</i>&nbsp;            Option.builder(&quot;o&quot;)</b>
+<b class="nc"><i>59</i>&nbsp;                .desc(&quot;Specify output XES file name&quot;)</b>
+<b class="nc"><i>60</i>&nbsp;                .hasArg(true)</b>
+<b class="nc"><i>61</i>&nbsp;                .argName(&quot;outputFile&quot;)</b>
+<b class="nc"><i>62</i>&nbsp;                .numberOfArgs(1)</b>
+<b class="nc"><i>63</i>&nbsp;                .type(String.class)</b>
+<b class="nc"><i>64</i>&nbsp;                .longOpt(&quot;input-file&quot;)</b>
+<b class="nc"><i>65</i>&nbsp;            .build()</b>
+<i>66</i>&nbsp;        );
+<i>67</i>&nbsp;
+<b class="nc"><i>68</i>&nbsp;        options.addOption(</b>
+<b class="nc"><i>69</i>&nbsp;            Option.builder(&quot;z&quot;)</b>
+<b class="nc"><i>70</i>&nbsp;                .type(Boolean.class)</b>
+<b class="nc"><i>71</i>&nbsp;                .longOpt(&quot;zipped&quot;)</b>
+<b class="nc"><i>72</i>&nbsp;                .desc(&quot;Zip creates xes&quot;)</b>
+<b class="nc"><i>73</i>&nbsp;                .hasArg(false)</b>
+<b class="nc"><i>74</i>&nbsp;            .build()</b>
+<i>75</i>&nbsp;        );
+<i>76</i>&nbsp;
+<b class="nc"><i>77</i>&nbsp;        options.addOption(</b>
+<b class="nc"><i>78</i>&nbsp;            Option.builder(&quot;?&quot;)</b>
+<b class="nc"><i>79</i>&nbsp;                .longOpt(&quot;help&quot;)</b>
+<b class="nc"><i>80</i>&nbsp;                .desc(&quot;Display this message&quot;)</b>
+<b class="nc"><i>81</i>&nbsp;            .build()</b>
+<i>82</i>&nbsp;        );
+<i>83</i>&nbsp;
+<b class="nc"><i>84</i>&nbsp;        CommandLineParser parser = new DefaultParser();</b>
+<i>85</i>&nbsp;        try {
+<i>86</i>&nbsp;            // parse the command line arguments
+<b class="nc"><i>87</i>&nbsp;            CommandLine line = parser.parse( options, args );</b>
+<i>88</i>&nbsp;
+<b class="nc"><i>89</i>&nbsp;            List&lt;String&gt; other = line.getArgList();</b>
+<i>90</i>&nbsp;
+<b class="nc"><i>91</i>&nbsp;            if (line.hasOption(&quot;?&quot;) ||</b>
+<b class="nc"><i>92</i>&nbsp;                    ( ( !line.hasOption(&quot;i&quot;) || !line.hasOption(&quot;o&quot;) ) &amp;&amp; other.size() != 2)</b>
+<i>93</i>&nbsp;                    ) {
+<b class="nc"><i>94</i>&nbsp;                printHelp(options);</b>
+<i>95</i>&nbsp;            }
+<i>96</i>&nbsp;            else {
+<i>97</i>&nbsp;                // check for input file
+<i>98</i>&nbsp;                String inputName, outputName;
+<b class="nc"><i>99</i>&nbsp;                if (line.hasOption(&quot;i&quot;)) {</b>
+<b class="nc"><i>100</i>&nbsp;                    inputName = line.getOptionValue(&quot;i&quot;);</b>
+<i>101</i>&nbsp;                }
+<i>102</i>&nbsp;                else {
+<b class="nc"><i>103</i>&nbsp;                    inputName = other.get(0);</b>
+<i>104</i>&nbsp;                }
+<i>105</i>&nbsp;
+<b class="nc"><i>106</i>&nbsp;                if (line.hasOption((&quot;o&quot;))) {</b>
+<b class="nc"><i>107</i>&nbsp;                    outputName = line.getOptionValue(&quot;o&quot;);</b>
+<i>108</i>&nbsp;                }
+<i>109</i>&nbsp;                else {
+<b class="nc"><i>110</i>&nbsp;                    outputName = other.get(1);</b>
+<i>111</i>&nbsp;                }
+<i>112</i>&nbsp;
+<b class="nc"><i>113</i>&nbsp;                File in = null;</b>
+<i>114</i>&nbsp;                try {
+<b class="nc"><i>115</i>&nbsp;                    in = new File(inputName);</b>
+<i>116</i>&nbsp;                }
+<b class="nc"><i>117</i>&nbsp;                catch (Exception exp) {</b>
+<b class="nc"><i>118</i>&nbsp;                    System.err.println( &quot;Cannot open input file.  Reason: &quot; + exp.getMessage() );</b>
+<b class="nc"><i>119</i>&nbsp;                }</b>
+<i>120</i>&nbsp;
+<b class="nc"><i>121</i>&nbsp;                createLog(in, outputName, line.hasOption(&quot;z&quot;));</b>
+<i>122</i>&nbsp;            }
+<i>123</i>&nbsp;        }
+<b class="nc"><i>124</i>&nbsp;        catch( ParseException exp ) {</b>
+<i>125</i>&nbsp;            // oops, something went wrong
+<b class="nc"><i>126</i>&nbsp;            System.err.println( &quot;Parsing failed.  Reason: &quot; + exp.getMessage() );</b>
+<b class="nc"><i>127</i>&nbsp;            printHelp(options);</b>
+<b class="nc"><i>128</i>&nbsp;        }</b>
+<i>129</i>&nbsp;    }
+<i>130</i>&nbsp;
+<i>131</i>&nbsp;    private static void createLog(File csv, String out, Boolean zipMe) {
+<b class="nc"><i>132</i>&nbsp;        System.out.println( &quot;Hello World!&quot; );</b>
+<b class="nc"><i>133</i>&nbsp;        XFactoryNaiveImpl xFactory = new XFactoryNaiveImpl();</b>
+<i>134</i>&nbsp;
+<b class="nc"><i>135</i>&nbsp;        XAttributeMap logAttributes = xFactory.createAttributeMap();</b>
+<b class="nc"><i>136</i>&nbsp;        logAttributes.put(&quot;process&quot;, xFactory.createAttributeLiteral(&quot;concept:name&quot;, &quot;VL02N transaction&quot;, XConceptExtension.instance()));</b>
+<b class="nc"><i>137</i>&nbsp;        XLog outputLog = xFactory.createLog(logAttributes);</b>
+<i>138</i>&nbsp;
+<b class="nc"><i>139</i>&nbsp;        XLifecycleExtension xLifecycleExtension = XLifecycleExtension.instance();</b>
+<b class="nc"><i>140</i>&nbsp;        xLifecycleExtension.assignModel(outputLog, &quot;standard&quot;);</b>
+<i>141</i>&nbsp;
+<b class="nc"><i>142</i>&nbsp;        XTimeExtension xTimeExtension = XTimeExtension.instance();</b>
+<b class="nc"><i>143</i>&nbsp;        XOrganizationalExtension xOrganizationalExtension = XOrganizationalExtension.instance();</b>
+<b class="nc"><i>144</i>&nbsp;        XConceptExtension xConceptExtension = XConceptExtension.instance();</b>
+<i>145</i>&nbsp;
+<b class="nc"><i>146</i>&nbsp;        outputLog.getGlobalTraceAttributes().add(xFactory.createAttributeLiteral(&quot;concept:name&quot;, &quot;name&quot;, xConceptExtension));</b>
+<i>147</i>&nbsp;
+<b class="nc"><i>148</i>&nbsp;        outputLog.getGlobalEventAttributes().add(xFactory.createAttributeLiteral(&quot;concept:name&quot;, &quot;&quot;, xConceptExtension));</b>
+<b class="nc"><i>149</i>&nbsp;        outputLog.getGlobalEventAttributes().add(xFactory.createAttributeLiteral(&quot;org:resource&quot;, &quot;&quot;, xOrganizationalExtension));</b>
+<b class="nc"><i>150</i>&nbsp;        outputLog.getGlobalEventAttributes().add(xFactory.createAttributeLiteral(&quot;time:timestamp&quot;, &quot;&quot;, xTimeExtension));</b>
+<b class="nc"><i>151</i>&nbsp;        outputLog.getGlobalEventAttributes().add(xFactory.createAttributeLiteral(&quot;lifecycle:transition&quot;, &quot;&quot;, xLifecycleExtension));</b>
+<i>152</i>&nbsp;
+<b class="nc"><i>153</i>&nbsp;        XEventNameClassifier xEventNameClassifier = new XEventNameClassifier();</b>
+<b class="nc"><i>154</i>&nbsp;        outputLog.getClassifiers().add(xEventNameClassifier);</b>
+<i>155</i>&nbsp;
+<b class="nc"><i>156</i>&nbsp;        outputLog.getExtensions().add(xConceptExtension);</b>
+<b class="nc"><i>157</i>&nbsp;        outputLog.getExtensions().add(xTimeExtension);</b>
+<b class="nc"><i>158</i>&nbsp;        outputLog.getExtensions().add(xOrganizationalExtension);</b>
+<b class="nc"><i>159</i>&nbsp;        outputLog.getExtensions().add(xLifecycleExtension);</b>
+<i>160</i>&nbsp;
+<b class="nc"><i>161</i>&nbsp;        int count = 0;</b>
+<b class="nc"><i>162</i>&nbsp;        CSVFormat csvFormat = CSVFormat</b>
+<i>163</i>&nbsp;                .EXCEL
+<b class="nc"><i>164</i>&nbsp;                .withHeader()</b>
+<b class="nc"><i>165</i>&nbsp;                .withIgnoreEmptyLines();</b>
+<i>166</i>&nbsp;
+<b class="nc"><i>167</i>&nbsp;        String oldTrace = &quot;&quot;;</b>
+<b class="nc"><i>168</i>&nbsp;        XTrace xTrace = xFactory.createTrace();</b>
+<b class="nc"><i>169</i>&nbsp;        CSVRecord lastRecord = null;</b>
+<b class="nc"><i>170</i>&nbsp;        ZoneId zoneId = ZoneId.systemDefault();</b>
+<i>171</i>&nbsp;
+<i>172</i>&nbsp;        try {
+<b class="nc"><i>173</i>&nbsp;            for (CSVRecord record : CSVParser.parse(csv, StandardCharsets.UTF_8, csvFormat)) {</b>
+<i>174</i>&nbsp;                //System.out.println(record);
+<i>175</i>&nbsp;
+<b class="nc"><i>176</i>&nbsp;                if (!record.get(&quot;Workflow Activity&quot;).equals(&quot;Screen Start&quot;)) continue;</b>
+<i>177</i>&nbsp;
+<i>178</i>&nbsp;                // 11/02/2015 02:58:13 pm
+<b class="nc"><i>179</i>&nbsp;                LocalDateTime start =  LocalDateTime.parse(record.get(&quot;Workflow Start Time&quot;).toUpperCase(), DateTimeFormatter.ofPattern(&quot;MM/dd/yyyy hh:mm:ss a&quot;));</b>
+<b class="nc"><i>180</i>&nbsp;                LocalDateTime end =  LocalDateTime.parse(record.get(&quot;Workflow End Time&quot;).toUpperCase(), DateTimeFormatter.ofPattern(&quot;MM/dd/yyyy hh:mm:ss a&quot;));</b>
+<i>181</i>&nbsp;
+<b class="nc"><i>182</i>&nbsp;                if (!oldTrace.equals(record.get(&quot;Module Instance ID&quot;))) {</b>
+<b class="nc"><i>183</i>&nbsp;                    if (!xTrace.isEmpty()) {</b>
+<b class="nc"><i>184</i>&nbsp;                        outputLog.add(xTrace);</b>
+<i>185</i>&nbsp;
+<i>186</i>&nbsp;
+<b class="nc"><i>187</i>&nbsp;                        LocalDateTime lastend =  LocalDateTime.parse(lastRecord.get(&quot;Workflow End Time&quot;).toUpperCase(), DateTimeFormatter.ofPattern(&quot;MM/dd/yyyy hh:mm:ss a&quot;));</b>
+<i>188</i>&nbsp;                        // add end event
+<b class="nc"><i>189</i>&nbsp;                        xTrace.add(createEvent(</b>
+<i>190</i>&nbsp;                                xFactory,
+<i>191</i>&nbsp;                                &quot;Finish transaction&quot;,
+<i>192</i>&nbsp;                                &quot;NA&quot;,
+<i>193</i>&nbsp;                                &quot;Finish transaction&quot;,
+<i>194</i>&nbsp;                                &quot;&quot;,
+<i>195</i>&nbsp;                                &quot;&quot;,
+<b class="nc"><i>196</i>&nbsp;                                lastRecord.get(&quot;Workflow ID&quot;),</b>
+<b class="nc"><i>197</i>&nbsp;                                lastend.atZone(zoneId).toEpochSecond(),</b>
+<i>198</i>&nbsp;                                XLifecycleExtension.StandardModel.COMPLETE
+<i>199</i>&nbsp;                        ));
+<i>200</i>&nbsp;                    }
+<i>201</i>&nbsp;
+<b class="nc"><i>202</i>&nbsp;                    xTrace = xFactory.createTrace();</b>
+<b class="nc"><i>203</i>&nbsp;                    xConceptExtension.assignName(xTrace, record.get(&quot;Module Instance ID&quot;));</b>
+<b class="nc"><i>204</i>&nbsp;                    oldTrace = record.get(&quot;Module Instance ID&quot;);</b>
+<i>205</i>&nbsp;
+<i>206</i>&nbsp;                    // start event
+<b class="nc"><i>207</i>&nbsp;                    xTrace.add(createEvent(</b>
+<i>208</i>&nbsp;                            xFactory,
+<i>209</i>&nbsp;                            &quot;Start transaction&quot;,
+<i>210</i>&nbsp;                            &quot;NA&quot;,
+<i>211</i>&nbsp;                            &quot;Start transaction&quot;,
+<i>212</i>&nbsp;                            &quot;&quot;,
+<i>213</i>&nbsp;                            &quot;&quot;,
+<b class="nc"><i>214</i>&nbsp;                            record.get(&quot;Workflow ID&quot;),</b>
+<b class="nc"><i>215</i>&nbsp;                            start.atZone(zoneId).toEpochSecond(),</b>
+<i>216</i>&nbsp;                            XLifecycleExtension.StandardModel.COMPLETE
+<i>217</i>&nbsp;                    ));
+<i>218</i>&nbsp;
+<i>219</i>&nbsp;                }
+<i>220</i>&nbsp;
+<b class="nc"><i>221</i>&nbsp;                String screen = record.get(&quot;Screen&quot;);</b>
+<b class="nc"><i>222</i>&nbsp;                screen = screen.replaceAll(&quot;^&gt; +&quot;, &quot;&quot;);</b>
+<b class="nc"><i>223</i>&nbsp;                screen = screen.replaceAll(&quot;\\d+&quot;, &quot;#&quot;);</b>
+<i>224</i>&nbsp;
+<b class="nc"><i>225</i>&nbsp;                xTrace.add(createEvent(</b>
+<i>226</i>&nbsp;                        xFactory,
+<i>227</i>&nbsp;                        screen,
+<b class="nc"><i>228</i>&nbsp;                        record.get(&quot;Screen ID&quot;),</b>
+<b class="nc"><i>229</i>&nbsp;                        record.get(&quot;Screen&quot;),</b>
+<b class="nc"><i>230</i>&nbsp;                        record.get(&quot;Description&quot;),</b>
+<b class="nc"><i>231</i>&nbsp;                        record.get(&quot;Workflow Activity&quot;),</b>
+<b class="nc"><i>232</i>&nbsp;                        record.get(&quot;Workflow ID&quot;),</b>
+<b class="nc"><i>233</i>&nbsp;                        start.atZone(zoneId).toEpochSecond(),</b>
+<i>234</i>&nbsp;                        XLifecycleExtension.StandardModel.START
+<i>235</i>&nbsp;                ));
+<i>236</i>&nbsp;
+<b class="nc"><i>237</i>&nbsp;                xTrace.add(createEvent(</b>
+<i>238</i>&nbsp;                        xFactory,
+<i>239</i>&nbsp;                        screen,
+<b class="nc"><i>240</i>&nbsp;                        record.get(&quot;Screen ID&quot;),</b>
+<b class="nc"><i>241</i>&nbsp;                        record.get(&quot;Screen&quot;),</b>
+<b class="nc"><i>242</i>&nbsp;                        record.get(&quot;Description&quot;),</b>
+<b class="nc"><i>243</i>&nbsp;                        record.get(&quot;Workflow Activity&quot;),</b>
+<b class="nc"><i>244</i>&nbsp;                        record.get(&quot;Workflow ID&quot;),</b>
+<b class="nc"><i>245</i>&nbsp;                        end.atZone(zoneId).toEpochSecond(),</b>
+<i>246</i>&nbsp;                        XLifecycleExtension.StandardModel.COMPLETE
+<i>247</i>&nbsp;                ));
+<i>248</i>&nbsp;
+<b class="nc"><i>249</i>&nbsp;                count++;</b>
+<b class="nc"><i>250</i>&nbsp;                lastRecord = record;</b>
+<b class="nc"><i>251</i>&nbsp;            }</b>
+<i>252</i>&nbsp;
+<i>253</i>&nbsp;        }
+<b class="nc"><i>254</i>&nbsp;        catch (Exception e) {</b>
+<b class="nc"><i>255</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i>256</i>&nbsp;        }</b>
+<i>257</i>&nbsp;
+<i>258</i>&nbsp;
+<i>259</i>&nbsp;//        OutputStream outputStream = new OutputStream() {
+<i>260</i>&nbsp;//            private StringBuilder string = new StringBuilder();
+<i>261</i>&nbsp;//
+<i>262</i>&nbsp;//            @Override
+<i>263</i>&nbsp;//            public void write(int b) throws IOException {
+<i>264</i>&nbsp;//                this.string.append((char) b );
+<i>265</i>&nbsp;//            }
+<i>266</i>&nbsp;//
+<i>267</i>&nbsp;//            public String toString(){
+<i>268</i>&nbsp;//                return this.string.toString();
+<i>269</i>&nbsp;//            }
+<i>270</i>&nbsp;//        };
+<i>271</i>&nbsp;
+<i>272</i>&nbsp;        try {
+<i>273</i>&nbsp;
+<i>274</i>&nbsp;
+<b class="nc"><i>275</i>&nbsp;            if (!zipMe) {</b>
+<b class="nc"><i>276</i>&nbsp;                File outFile = new File(out);</b>
+<b class="nc"><i>277</i>&nbsp;                OutputStream outputStream = new FileOutputStream(outFile);</b>
+<b class="nc"><i>278</i>&nbsp;                XesXmlSerializer xesXmlSerializer = new XesXmlSerializer();</b>
+<b class="nc"><i>279</i>&nbsp;                xesXmlSerializer.serialize(outputLog, outputStream);</b>
+<b class="nc"><i>280</i>&nbsp;            }</b>
+<i>281</i>&nbsp;            else {
+<b class="nc"><i>282</i>&nbsp;                File outFile = new File(out.concat(&quot;.gz&quot;));</b>
+<b class="nc"><i>283</i>&nbsp;                OutputStream outputStream = new FileOutputStream(outFile);</b>
+<b class="nc"><i>284</i>&nbsp;                XesXmlGZIPSerializer xesXmlGZIPSerializer = new XesXmlGZIPSerializer();</b>
+<b class="nc"><i>285</i>&nbsp;                xesXmlGZIPSerializer.serialize(outputLog, outputStream);</b>
+<i>286</i>&nbsp;            }
+<i>287</i>&nbsp;//            System.out.println(outputStream.toString());
+<i>288</i>&nbsp;        }
+<b class="nc"><i>289</i>&nbsp;        catch (Exception e) {</b>
+<b class="nc"><i>290</i>&nbsp;            e.printStackTrace();</b>
+<b class="nc"><i>291</i>&nbsp;        }</b>
+<i>292</i>&nbsp;    }
+<i>293</i>&nbsp;
+<i>294</i>&nbsp;    private static void printHelp(Options options) {
+<b class="nc"><i>295</i>&nbsp;        HelpFormatter formatter = new HelpFormatter();</b>
+<b class="nc"><i>296</i>&nbsp;        String header = &quot;Convert CSV from JNOA into XES\n\n&quot;;</b>
+<b class="nc"><i>297</i>&nbsp;        formatter.printHelp(&quot;knoa2xes [input-file] [output-file]&quot;, header, options, &quot;&quot;, true);</b>
+<i>298</i>&nbsp;    }
+<i>299</i>&nbsp;
+<i>300</i>&nbsp;    private static  XEvent createEvent(XFactory xFactory, String screen, String screenId, String rawScreen, String description,
+<i>301</i>&nbsp;                                       String activity, String resource, Long time, XLifecycleExtension.StandardModel stage) {
+<b class="nc"><i>302</i>&nbsp;        XEvent event = xFactory.createEvent();</b>
+<i>303</i>&nbsp;
+<b class="nc"><i>304</i>&nbsp;        XAttributeMap eventMap = xFactory.createAttributeMap();</b>
+<b class="nc"><i>305</i>&nbsp;        eventMap.put(&quot;raw_screen&quot;, xFactory.createAttributeLiteral(&quot;rawScreen&quot;, rawScreen, null));</b>
+<b class="nc"><i>306</i>&nbsp;        eventMap.put(&quot;screen_id&quot;, xFactory.createAttributeLiteral(&quot;screenId&quot;, screenId, null));</b>
+<b class="nc"><i>307</i>&nbsp;        eventMap.put(&quot;description&quot;, xFactory.createAttributeLiteral(&quot;description&quot;, description, null));</b>
+<b class="nc"><i>308</i>&nbsp;        eventMap.put(&quot;activity&quot;, xFactory.createAttributeLiteral(&quot;activity&quot;, activity, null));</b>
+<i>309</i>&nbsp;
+<b class="nc"><i>310</i>&nbsp;        XConceptExtension.instance().assignName(event, screen);</b>
+<b class="nc"><i>311</i>&nbsp;        XOrganizationalExtension.instance().assignResource(event, resource);</b>
+<b class="nc"><i>312</i>&nbsp;        XTimeExtension.instance().assignTimestamp(event, time*1000);</b>
+<b class="nc"><i>313</i>&nbsp;        XLifecycleExtension.instance().assignStandardTransition(event, stage);</b>
+<i>314</i>&nbsp;
+<b class="nc"><i>315</i>&nbsp;        return event;</b>
+<i>316</i>&nbsp;    }
+<i>317</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2015-12-16 20:44</div>
+</div>
+</body>
+</html>
