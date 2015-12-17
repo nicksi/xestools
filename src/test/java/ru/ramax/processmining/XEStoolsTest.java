@@ -22,6 +22,8 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -35,6 +37,9 @@ public class XEStoolsTest
 {
     @Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
+
+    static private final ZonedDateTime MINTIME = ZonedDateTime.of(LocalDateTime.MIN, ZoneId.systemDefault());
+    static private final ZonedDateTime MAXTIME = ZonedDateTime.of(LocalDateTime.MAX, ZoneId.systemDefault());
 
     private XLog emptyLog;
     private XFactoryNaiveImpl xFactory;
@@ -132,8 +137,8 @@ public class XEStoolsTest
         XEStools xeStools = new XEStools(emptyLog);
         assertNotNull("Failed to initilize.", xeStools);
 
-        LocalDateTime start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        ZonedDateTime start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
         // add some trace with event and reset utils
         XLog xLog = (XLog) emptyLog.clone();
@@ -143,7 +148,7 @@ public class XEStoolsTest
         xLog.add(xTrace);
         xeStools.setXLog(xLog);
         start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
         XEvent xEvent1 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent1, "event1");
@@ -161,36 +166,35 @@ public class XEStoolsTest
         xTrace.add(xEvent3);
 
         start = xeStools.traceStartTime("test");
-        assertTrue("Should match first event (name). Expected 10:00, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,0,0)));
+        assertTrue("Should match first event (name). Expected 10:00, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
         start = xeStools.traceStartTime(xTrace);
-        assertTrue("Should match first event (trace). Expected 10:00, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,0,0)));
+        assertTrue("Should match first event (trace). Expected 10:00, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
         start = xeStools.traceStartTime(xTrace, "event1");
-        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,30,0)));
+        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
 
         start = xeStools.traceStartTime("test", "event1");
-        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,30,0)));
+        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
 
-        LocalDateTime end;
+        ZonedDateTime end;
         end = xeStools.traceEndTime("test");
-        assertTrue("Should match last event (name). Expected 10:40, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,40,0)));
+        assertTrue("Should match last event (name). Expected 10:40, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
         end = xeStools.traceEndTime(xTrace);
-        assertTrue("Should match last event (trace). Expected 10:40, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,40,0)));
+        assertTrue("Should match last event (trace). Expected 10:40, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
         end = xeStools.traceEndTime(xTrace, "event2");
-        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,0,0)));
-
+        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
         end = xeStools.traceEndTime("test", "event2");
-        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,0,0)));
+        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
         end = xeStools.traceStartTime("testNon");
-        assertTrue("Should return dummy", end.equals(LocalDateTime.MIN));
+        assertTrue("Should return dummy", end.equals(MINTIME));
 
         xeStools.setXLog(emptyLog);
         start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
     }
 
@@ -199,8 +203,8 @@ public class XEStoolsTest
         XEStools xeStools = new XEStools(emptyLog);
         assertNotNull("Failed to initilize.", xeStools);
 
-        LocalDateTime start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        ZonedDateTime start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
         // add some trace with event and reset utils
         XLog xLog = (XLog) emptyLog.clone();
@@ -210,7 +214,7 @@ public class XEStoolsTest
         xLog.add(xTrace);
         xeStools.setXLog(xLog);
         start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
         XEvent xEvent1 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent1, "event1");
@@ -245,8 +249,8 @@ public class XEStoolsTest
         XEStools xeStools = new XEStools(emptyLog);
         assertNotNull("Failed to initilize.", xeStools);
 
-        LocalDateTime start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        ZonedDateTime start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
         // add some trace with event and reset utils
         XLog xLog = (XLog) emptyLog.clone();
@@ -256,7 +260,7 @@ public class XEStoolsTest
         xLog.add(xTrace);
         xeStools.setXLog(xLog);
         start = xeStools.traceStartTime("test");
-        assertTrue("Should return dummy", start.equals(LocalDateTime.MIN));
+        assertTrue("Should return dummy", start.equals(MINTIME));
 
         XEvent xEvent1 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent1, "event1");
@@ -315,10 +319,11 @@ public class XEStoolsTest
         assertTrue("Second trace should have 3 events, got " + flatXTraceList.get(1).getEventCount(), flatXTraceList.get(1).getEventCount() == 3);
         assertTrue("Second trace name should be test2, got " + flatXTraceList.get(1).getConceptName(), flatXTraceList.get(1).getConceptName().equals("test2"));
         assertTrue("Traces are different", !flatXTraceList.get(0).equals(flatXTraceList.get(1)));
-        LocalDateTime stamp = flatXTraceList.get(0).getStartTime();
-        assertTrue("Time should be 10:00, got "+ stamp.toString(), stamp.equals(LocalDateTime.of(2015,1,1,10,0,0)));
+
+        ZonedDateTime stamp = flatXTraceList.get(0).getStartTime();
+        assertTrue("Time should be 10:00, got "+ stamp.toString(), stamp.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
         stamp = flatXTraceList.get(0).getEndTime();
-        assertTrue("Time should be 10:40, got "+ stamp.toString(), stamp.equals(LocalDateTime.of(2015,1,1,10,40,0)));
+        assertTrue("Time should be 10:40, got "+ stamp.toString(), stamp.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
         assertTrue("Number of event repetitions should be 0 got " + flatXTraceList.get(0).getEventRepetitions(), flatXTraceList.get(0).getEventRepetitions() == 0);
 

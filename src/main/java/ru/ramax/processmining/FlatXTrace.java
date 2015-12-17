@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 /**
  * Created by Nikolai Sitnikov on 17.12.15.
@@ -18,8 +19,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class FlatXTrace {
     private String conceptName;
-    private LocalDateTime startTime;
-    private LocalDateTime endTime;
+    private ZonedDateTime startTime;
+    private ZonedDateTime endTime;
     private String orgResource;
     private String orgRole;
 
