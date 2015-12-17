@@ -8,7 +8,8 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * Created by apple on 17.12.15.
+ * Created by Nikolai Sitnikov on 17.12.15.
+ * Class to store flat trace to be used by calling party
  */
 
 @Getter
@@ -25,5 +26,5 @@ public class FlatXTrace {
     // calculatables
     private int eventCount;
     private long duration;
-    private int eventRepetions;
+    private int eventRepetitions;
 }

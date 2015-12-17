@@ -1,6 +1,6 @@
 package ru.ramax.processmining;
 
-import junit.framework.TestCase;
+import com.google.common.collect.Maps;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.extension.std.XConceptExtension;
 import org.deckfour.xes.extension.std.XLifecycleExtension;
@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 import static junit.framework.TestCase.assertNotNull;
@@ -160,29 +161,29 @@ public class XEStoolsTest
         xTrace.add(xEvent3);
 
         start = xeStools.traceStartTime("test");
-        assertTrue("Should match first event (name). Expected 10:00, got "+ start.toString(), start.equals(LocalDateTime.of(2015,01,01,10,00,00)));
+        assertTrue("Should match first event (name). Expected 10:00, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,0,0)));
 
         start = xeStools.traceStartTime(xTrace);
-        assertTrue("Should match first event (trace). Expected 10:00, got "+ start.toString(), start.equals(LocalDateTime.of(2015,01,01,10,00,00)));
+        assertTrue("Should match first event (trace). Expected 10:00, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,0,0)));
 
         start = xeStools.traceStartTime(xTrace, "event1");
-        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(LocalDateTime.of(2015,01,01,10,30,00)));
+        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,30,0)));
 
         start = xeStools.traceStartTime("test", "event1");
-        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(LocalDateTime.of(2015,01,01,10,30,00)));
+        assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(LocalDateTime.of(2015,1,1,10,30,0)));
 
-        LocalDateTime end = null;
+        LocalDateTime end;
         end = xeStools.traceEndTime("test");
-        assertTrue("Should match last event (name). Expected 10:40, got "+ end.toString(), end.equals(LocalDateTime.of(2015,01,01,10,40,00)));
+        assertTrue("Should match last event (name). Expected 10:40, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,40,0)));
 
         end = xeStools.traceEndTime(xTrace);
-        assertTrue("Should match last event (trace). Expected 10:40, got "+ end.toString(), end.equals(LocalDateTime.of(2015,01,01,10,40,00)));
+        assertTrue("Should match last event (trace). Expected 10:40, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,40,0)));
 
         end = xeStools.traceEndTime(xTrace, "event2");
-        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(LocalDateTime.of(2015,01,01,10,00,00)));
+        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,0,0)));
 
         end = xeStools.traceEndTime("test", "event2");
-        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(LocalDateTime.of(2015,01,01,10,00,00)));
+        assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(LocalDateTime.of(2015,1,1,10,0,0)));
 
         end = xeStools.traceStartTime("testNon");
         assertTrue("Should return dummy", end.equals(LocalDateTime.MIN));
@@ -265,13 +266,13 @@ public class XEStoolsTest
 
         XEvent xEvent2 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent2, "event2");
-        XOrganizationalExtension.instance().assignResource(xEvent1, "RES001");
+        XOrganizationalExtension.instance().assignResource(xEvent2, "RES001");
         XTimeExtension.instance().assignTimestamp(xEvent2, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
         xTrace.add(xEvent2);
 
         XEvent xEvent3 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent3, "event1");
-        XOrganizationalExtension.instance().assignResource(xEvent1, "RES003");
+        XOrganizationalExtension.instance().assignResource(xEvent3, "RES003");
         XTimeExtension.instance().assignTimestamp(xEvent3, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
         xTrace.add(xEvent3);
 
@@ -286,13 +287,13 @@ public class XEStoolsTest
 
         XEvent xEvent5 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent5, "event2");
-        XOrganizationalExtension.instance().assignResource(xEvent4, "RES001");
+        XOrganizationalExtension.instance().assignResource(xEvent5, "RES001");
         XTimeExtension.instance().assignTimestamp(xEvent5, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
         xTrace2.add(xEvent5);
 
         XEvent xEvent6 = xFactory.createEvent();
         XConceptExtension.instance().assignName(xEvent6, "event1");
-        XOrganizationalExtension.instance().assignResource(xEvent4, "RES003");
+        XOrganizationalExtension.instance().assignResource(xEvent6, "RES001");
         XTimeExtension.instance().assignTimestamp(xEvent6, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
         xTrace2.add(xEvent6);
 
@@ -303,6 +304,23 @@ public class XEStoolsTest
         Map<String, Long> result2 = xeStools.getTraceDurations("event1", "event1");
         assertTrue("We expect two traces, got "+result2.size(), result2.size() == 2);
         assertTrue("Test2 trace should have duration of 600 seconds, got " + result2.get("test2"), result2.get("test2") == 600);
+
+        List<FlatXTrace> flatXTraceList = xeStools.getFullTraceList(Maps.newHashMap());
+        assertNotNull("Should receive some traces", flatXTraceList);
+        assertTrue("Should receive 2 traces got "+flatXTraceList.size(), flatXTraceList.size() == 2);
+        assertTrue("First trace duration should be 2400, got " + flatXTraceList.get(0).getDuration(), flatXTraceList.get(0).getDuration() == 2400);
+        assertTrue("First trace role should be NA, got " + flatXTraceList.get(0).getOrgRole(), flatXTraceList.get(0).getOrgRole().equals("NA"));
+        assertTrue("First trace resource should be MULTI, got" + flatXTraceList.get(0).getOrgResource(), flatXTraceList.get(0).getOrgResource().equals("MULTI"));
+        assertTrue("Second trace resource should be RES001, got" + flatXTraceList.get(1).getOrgResource(), flatXTraceList.get(1).getOrgResource().equals("RES001"));
+        assertTrue("Second trace should have 3 events, got " + flatXTraceList.get(1).getEventCount(), flatXTraceList.get(1).getEventCount() == 3);
+        assertTrue("Second trace name should be test2, got " + flatXTraceList.get(1).getConceptName(), flatXTraceList.get(1).getConceptName().equals("test2"));
+        assertTrue("Traces are different", !flatXTraceList.get(0).equals(flatXTraceList.get(1)));
+        LocalDateTime stamp = flatXTraceList.get(0).getStartTime();
+        assertTrue("Time should be 10:00, got "+ stamp.toString(), stamp.equals(LocalDateTime.of(2015,1,1,10,0,0)));
+        stamp = flatXTraceList.get(0).getEndTime();
+        assertTrue("Time should be 10:40, got "+ stamp.toString(), stamp.equals(LocalDateTime.of(2015,1,1,10,40,0)));
+
+        assertTrue("Number of event repetitions should be 0 got " + flatXTraceList.get(0).getEventRepetitions(), flatXTraceList.get(0).getEventRepetitions() == 0);
 
 
     }

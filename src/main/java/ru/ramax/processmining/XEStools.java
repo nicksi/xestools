@@ -329,8 +329,10 @@ public class XEStools {
             flatXTrace.setEndTime(traceEndTime(current));
             flatXTrace.setEventCount(current.size());
             flatXTrace.setOrgResource(getTraceResource(current, "org:resource", null));
-            flatXTrace.setOrgRole(getTraceResource(current, "org:resource", null));
-            flatXTrace.setEventRepetions(0);
+            flatXTrace.setOrgRole(getTraceResource(current, "org:role", null));
+            flatXTrace.setEventRepetitions(0);
+
+            traces.add(flatXTrace);
 
         }
 
