@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import static junit.framework.TestCase.assertNotNull;
+import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
 
 /**
@@ -327,6 +328,99 @@ public class XEStoolsTest
 
         assertTrue("Number of event repetitions should be 0 got " + flatXTraceList.get(0).getEventRepetitions(), flatXTraceList.get(0).getEventRepetitions() == 0);
 
+
+    }
+
+    @Test
+    public void traceSegmentSelection() {
+        XEStools xeStools = new XEStools(emptyLog);
+        assertNotNull("Failed to initilize.", xeStools);
+
+        ZonedDateTime start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
+
+        // add some trace with event and reset utils
+        XLog xLog = (XLog) emptyLog.clone();
+
+        XTrace xTrace = xFactory.createTrace();
+        XConceptExtension.instance().assignName(xTrace,"test");
+        xLog.add(xTrace);
+        xeStools.setXLog(xLog);
+        start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
+
+        XEvent xEvent1 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent1, "event2");
+        XTimeExtension.instance().assignTimestamp(xEvent1, Instant.parse("2015-01-01T10:30:00.00Z").toEpochMilli());
+        XOrganizationalExtension.instance().assignResource(xEvent1, "RES001");
+        xTrace.add(xEvent1);
+
+        XEvent xEvent2 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent2, "event1");
+        XOrganizationalExtension.instance().assignResource(xEvent2, "RES001");
+        XTimeExtension.instance().assignTimestamp(xEvent2, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
+        xTrace.add(xEvent2);
+
+        XEvent xEvent3 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent3, "event3");
+        XOrganizationalExtension.instance().assignResource(xEvent3, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent3, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
+        xTrace.add(xEvent3);
+
+        XEvent xEvent4 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent4, "event2");
+        XOrganizationalExtension.instance().assignResource(xEvent4, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent4, Instant.parse("2015-01-01T10:50:00.00Z").toEpochMilli());
+        xTrace.add(xEvent4);
+
+        XEvent xEvent5 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent5, "event4");
+        XOrganizationalExtension.instance().assignResource(xEvent5, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent5, Instant.parse("2015-01-01T10:55:00.00Z").toEpochMilli());
+        xTrace.add(xEvent5);
+
+        XEvent xEvent6 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent6, "event3");
+        XOrganizationalExtension.instance().assignResource(xEvent6, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent6, Instant.parse("2015-01-01T10:57:00.00Z").toEpochMilli());
+        xTrace.add(xEvent6);
+
+        XEvent xEvent7 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent7, "event5");
+        XOrganizationalExtension.instance().assignResource(xEvent7, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent7, Instant.parse("2015-01-01T11:05:00.00Z").toEpochMilli());
+        xTrace.add(xEvent7);
+
+        XEvent xEvent8 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent8, "event6");
+        XOrganizationalExtension.instance().assignResource(xEvent8, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent8, Instant.parse("2015-01-01T11:10:00.00Z").toEpochMilli());
+        xTrace.add(xEvent8);
+
+        XTrace trace = xeStools.getXTrace("test");
+        assertTrue("Should be 8 events, got "+ trace.size(), trace.size() == 8);
+
+        XTrace segment = XEStools.trimTrace(trace, "event2", "event3");
+        assertNotNull("Segment should be generated", segment);
+        assertTrue("Should be 5 events, got "+segment.size(), segment.size() == 5);
+        assertTrue("First event time 10:30 got " + XEStools.traceStartTime(segment),
+                XEStools.traceStartTime(segment).equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
+        assertTrue("Last event time 10:57 got " + XEStools.traceEndTime(segment),
+                XEStools.traceEndTime(segment).equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
+
+        segment = XEStools.trimTrace(trace, "event4", "event4");
+        assertTrue("Should be 1 event, got "+segment.size(), segment.size() == 1);
+
+        segment = XEStools.trimTrace(trace, "event7", "event8");
+        assertNull("Segment should be null", segment);
+
+        List<FlatXTrace> traces = xeStools.getFullSubTraceList(null, "event2", "event3");
+        assertTrue("Should be one trace in list, got "+traces.size(), traces.size() == 1);
+        assertTrue("Trace should have 5 events, got "+traces.get(0).getEventCount(), traces.get(0).getEventCount() == 5);
+        assertTrue("First event time 10:30 got " + traces.get(0).getStartTime(),
+                traces.get(0).getStartTime().equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
+        assertTrue("Last event time 10:57 got " + traces.get(0).getStartTime(),
+                traces.get(0).getEndTime().equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
 
     }
 }
