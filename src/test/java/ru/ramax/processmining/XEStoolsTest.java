@@ -30,6 +30,7 @@ import java.util.Map;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
+import static ru.ramax.processmining.XEStools.*;
 
 /**
  * Unit test for simple App.
@@ -169,10 +170,10 @@ public class XEStoolsTest
         start = xeStools.traceStartTime("test");
         assertTrue("Should match first event (name). Expected 10:00, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
-        start = xeStools.traceStartTime(xTrace);
+        start = traceStartTime(xTrace);
         assertTrue("Should match first event (trace). Expected 10:00, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
-        start = xeStools.traceStartTime(xTrace, "event1");
+        start = traceStartTime(xTrace, "event1");
         assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
 
         start = xeStools.traceStartTime("test", "event1");
@@ -182,10 +183,10 @@ public class XEStoolsTest
         end = xeStools.traceEndTime("test");
         assertTrue("Should match last event (name). Expected 10:40, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
-        end = xeStools.traceEndTime(xTrace);
+        end = traceEndTime(xTrace);
         assertTrue("Should match last event (trace). Expected 10:40, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
-        end = xeStools.traceEndTime(xTrace, "event2");
+        end = traceEndTime(xTrace, "event2");
         assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
         end = xeStools.traceEndTime("test", "event2");
         assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
@@ -235,13 +236,13 @@ public class XEStoolsTest
         Long duration = xeStools.getTraceDuration("test");
         assertTrue("Test duration calculation. Expected 2400 got "+duration, duration == 2400);
 
-        duration = xeStools.getTraceDuration(xTrace);
+        duration = getTraceDuration(xTrace);
         assertTrue("Test duration calculation. Expected 2400 got "+duration, duration == 2400);
 
-        duration = xeStools.getTraceDuration(xTrace, "event1", "event1");
+        duration = getTraceDuration(xTrace, "event1", "event1");
         assertTrue("Test duration calculation. Expected 2400 got "+duration, duration == 600);
 
-        duration = xeStools.getTraceDuration(xTrace, "event", "event1");
+        duration = getTraceDuration(xTrace, "event", "event1");
         assertTrue("Test duration calculation. Expected 0 got "+duration, duration == 0);
     }
 
@@ -403,10 +404,10 @@ public class XEStoolsTest
         XTrace segment = XEStools.trimTrace(trace, "event2", "event3");
         assertNotNull("Segment should be generated", segment);
         assertTrue("Should be 5 events, got "+segment.size(), segment.size() == 5);
-        assertTrue("First event time 10:30 got " + XEStools.traceStartTime(segment),
-                XEStools.traceStartTime(segment).equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
-        assertTrue("Last event time 10:57 got " + XEStools.traceEndTime(segment),
-                XEStools.traceEndTime(segment).equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
+        assertTrue("First event time 10:30 got " + traceStartTime(segment),
+                traceStartTime(segment).equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
+        assertTrue("Last event time 10:57 got " + traceEndTime(segment),
+                traceEndTime(segment).equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
 
         segment = XEStools.trimTrace(trace, "event4", "event4");
         assertTrue("Should be 1 event, got "+segment.size(), segment.size() == 1);
@@ -424,6 +425,96 @@ public class XEStoolsTest
 
         traces = xeStools.getFullSubTraceList(null, "event9", "event9");
         assertTrue("List should be empty", traces.size() == 0);
+
+
+    }
+
+    @Test
+    public void eventStatsCalculations() {
+        XEStools xeStools = new XEStools(emptyLog);
+        assertNotNull("Failed to initialize.", xeStools);
+
+        ZonedDateTime start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
+
+        // add some trace with event and reset utils
+        XLog xLog = (XLog) emptyLog.clone();
+
+        XTrace xTrace = xFactory.createTrace();
+        XConceptExtension.instance().assignName(xTrace,"test");
+        xLog.add(xTrace);
+        xeStools.setXLog(xLog);
+        start = xeStools.traceStartTime("test");
+        assertTrue("Should return dummy", start.equals(MINTIME));
+
+        XEvent xEvent1 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent1, "event1");
+        XLifecycleExtension.instance().assignStandardTransition(xEvent1, XLifecycleExtension.StandardModel.START);
+        XTimeExtension.instance().assignTimestamp(xEvent1, Instant.parse("2015-01-01T10:30:00.00Z").toEpochMilli());
+        XOrganizationalExtension.instance().assignResource(xEvent1, "RES001");
+        xTrace.add(xEvent1);
+
+        XEvent xEvent2 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent2, "event2");
+        XOrganizationalExtension.instance().assignResource(xEvent2, "RES001");
+        XTimeExtension.instance().assignTimestamp(xEvent2, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
+        xTrace.add(xEvent2);
+
+        XEvent xEvent1f = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent1f, "event1");
+        XOrganizationalExtension.instance().assignResource(xEvent1f, "RES001");
+        XLifecycleExtension.instance().assignStandardTransition(xEvent1f, XLifecycleExtension.StandardModel.COMPLETE);
+        XTimeExtension.instance().assignTimestamp(xEvent1f, Instant.parse("2015-01-01T10:45:00.00Z").toEpochMilli());
+        xTrace.add(xEvent1f);
+
+        XEvent xEvent3 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent3, "event1");
+        XOrganizationalExtension.instance().assignResource(xEvent3, "RES003");
+        XTimeExtension.instance().assignTimestamp(xEvent3, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
+        xTrace.add(xEvent3);
+
+
+
+        XTrace xTrace2 = xFactory.createTrace();
+        XConceptExtension.instance().assignName(xTrace2,"test2");
+        xLog.add(xTrace2);
+
+        XEvent xEvent4 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent4, "event1");
+        XTimeExtension.instance().assignTimestamp(xEvent4, Instant.parse("2015-01-01T10:30:00.00Z").toEpochMilli());
+        XOrganizationalExtension.instance().assignResource(xEvent4, "RES001");
+        xTrace2.add(xEvent4);
+
+        XEvent xEvent5 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent5, "event2");
+        XOrganizationalExtension.instance().assignResource(xEvent5, "RES001");
+        XTimeExtension.instance().assignTimestamp(xEvent5, Instant.parse("2015-01-01T10:00:00.00Z").toEpochMilli());
+        xTrace2.add(xEvent5);
+
+        XEvent xEvent6 = xFactory.createEvent();
+        XConceptExtension.instance().assignName(xEvent6, "event1");
+        XOrganizationalExtension.instance().assignResource(xEvent6, "RES001");
+        XTimeExtension.instance().assignTimestamp(xEvent6, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
+        xTrace2.add(xEvent6);
+
+        Map<String, Double> durations = eventDurationInTrace(xTrace);
+        assertTrue("There are two classes of events in trace, got "+ durations.size(), durations.size() == 2);
+        assertTrue("The event2 duration is 1800 seconds, got "+durations.get("event2"), durations.get("event2") == 1800D);
+        assertTrue("The event1 duration is 1200 seconds, got "+durations.get("event1"), durations.get("event1") == 1200D);
+        Map<String, Double> shares = eventSharesInTrace(xTrace);
+        assertTrue("There are two classes of events in trace, got "+ shares.size(), shares.size() == 2);
+        assertTrue("The event2 share is 1800D/2700D, got "+shares.get("event2"), shares.get("event2") == 1800D/2700D);
+        assertTrue("The event1 duration is 1200D/2700D, got "+shares.get("event1"), shares.get("event1") == 1200D/2700D);
+
+        shares = eventSharesInTrace(xTrace2);
+        assertTrue("There are two classes of events in trace, got "+ shares.size(), shares.size() == 2);
+        assertTrue("The event2 share is 1800D/2700D, got "+shares.get("event2"), shares.get("event2") == 1800D/2400D);
+        assertTrue("The event1 duration is 600D/2700D, got "+shares.get("event1"), shares.get("event1") == 600D/2400D);
+
+        Map<String, Double> traceShares = xeStools.eventDurationShares(null, false);
+        assertTrue("There are two classes of events in trace, got "+ traceShares.size(), traceShares.size() == 2);
+        assertTrue("The event2 share is (1800D/2700D + 1800D/2400D)/2, got "+traceShares.get("event2"), traceShares.get("event2") == (1800D/2700D + 1800D/2400D)/2);
+        assertTrue("The event1 duration is (1200D/2700D + 600D/2400D)/2, got "+traceShares.get("event1"), traceShares.get("event1") == (1200D/2700D + 600D/2400D)/2);
 
 
     }

@@ -2,8 +2,12 @@ package ru.ramax.processmining;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multiset;
 import lombok.Getter;
 import lombok.NonNull;
+import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
+import org.deckfour.xes.extension.std.XLifecycleExtension;
+import org.deckfour.xes.extension.std.XTimeExtension;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.in.XesXmlGZIPParser;
 import org.deckfour.xes.model.*;
@@ -11,14 +15,18 @@ import org.deckfour.xes.model.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.time.*;
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Set of methods to work with XES logs
- * Created by nsitnikov on 16/12/15.
+ * Created by Nikolai Sitnikov on 16/12/15.
  */
 public class XEStools {
 
@@ -86,7 +94,7 @@ public class XEStools {
         if (xTrace.size() > 0) {
             for(XEvent xEvent: xTrace) {
                 if (eventName != null && !getAttribute(xEvent, "concept:name").equals(eventName)) continue;
-                ZonedDateTime current = (ZonedDateTime) getAttribute(xEvent, "time:timestamp");
+                ZonedDateTime current = getTimeStamp(xEvent);
 
                 if (current != null) {
                     if (startTime.equals(MINTIME) || current.isBefore(startTime)) {
@@ -155,7 +163,7 @@ public class XEStools {
         if (xTrace.size() > 0) {
             for(XEvent xEvent: xTrace) {
                 if (eventName != null && !getAttribute(xEvent, "concept:name").equals(eventName)) continue;
-                ZonedDateTime current = (ZonedDateTime) getAttribute(xEvent, "time:timestamp");
+                ZonedDateTime current = getTimeStamp(xEvent);
 
                 if (current != null) {
                     if (endTime.equals(MAXTIME) || current.isAfter(endTime)) {
@@ -322,8 +330,8 @@ public class XEStools {
         if (startTime.isAfter(MINTIME) && endTime.isBefore(MAXTIME) && !startTime.isAfter(endTime)) {
             trimmed.removeIf(
                     event -> (
-                            ((ZonedDateTime)getAttribute(event, "time:timestamp")).isBefore(startTime) ||
-                            ((ZonedDateTime)getAttribute(event, "time:timestamp")).isAfter(endTime)
+                            getTimeStamp(event).isBefore(startTime) ||
+                            getTimeStamp(event).isAfter(endTime)
                     )
             );
         }
@@ -353,7 +361,7 @@ public class XEStools {
     }
 
     /***
-     * Return event attribuite for trace. "NA" if no org:resource attributes in any event, "MULTI" if multiple resources
+     * Return event attribute for trace. "NA" if no org:resource attributes in any event, "MULTI" if multiple resources
      * @param xTrace trace to look into
      * @param attribute name attribute to receive
      * @param eventName event name to check
@@ -445,23 +453,154 @@ public class XEStools {
 
         if (object.hasAttributes()) {
             XAttributeMap xAttributeMap = object.getAttributes();
+            XAttribute attribute = null;
 
-            for (XAttribute attribute : xAttributeMap.values()) {
-                if (attribute.getKey().equals(name)) {
-                    if (XAttributeLiteral.class.isInstance(attribute)) {
-                        value = ((XAttributeLiteral) attribute).getValue();
+            if (xAttributeMap.containsKey(name)) {
+                attribute = xAttributeMap.get(name);
+            }
+            else {
+                for (XAttribute current : xAttributeMap.values()) {
+                    if (current.getKey().equals(name)) {
+                        attribute = current;
                         break;
                     }
-                    else if (XAttributeTimestamp.class.isInstance(attribute)) {
-                        long millis = ((XAttributeTimestamp) attribute).getValueMillis();
-                        value = ZonedDateTime.ofInstant(Instant.ofEpochSecond(millis / 1000), ZoneId.of("UTC"));
-                        break;
-                    }
+                }
+            }
+
+            if (attribute != null) {
+                if (XAttributeLiteral.class.isInstance(attribute)) {
+                    value = ((XAttributeLiteral) attribute).getValue();
+                }
+                else if (XAttributeTimestamp.class.isInstance(attribute)) {
+                    value = ZonedDateTime.ofInstant(((XAttributeTimestamp) attribute).getValue().toInstant(), ZoneId.of("UTC"));
                 }
             }
         }
 
         return value;
+    }
+
+    /***
+     * Calculate average share of event duration in trace on whole log
+     * @param filter log filter to apply
+     * @param useMedian mode of calculation - mean or median (better if skewed)
+     * @return
+     */
+    public Map<String, Double> eventDurationShares(Map<String, String> filter, boolean useMedian) {
+        Map<String, Double> shares = Maps.newHashMap();
+        Map<String, DescriptiveStatistics> buffer = Maps.newHashMap();
+
+        for(XTrace xTrace: xlog) {
+            Map<String, Double> traceShares = eventSharesInTrace(xTrace);
+            for (Map.Entry<String, Double> entry: traceShares.entrySet()) {
+                DescriptiveStatistics current = buffer.getOrDefault(entry.getKey(), new DescriptiveStatistics());
+                current.addValue(entry.getValue());
+                buffer.put(
+                        entry.getKey(),
+                        current
+                );
+            }
+        }
+
+        // average share
+        for (Map.Entry<String, DescriptiveStatistics> entry: buffer.entrySet()) {
+            if (useMedian)
+                shares.put(entry.getKey(), entry.getValue().getPercentile(50));
+            else
+                shares.put(entry.getKey(), entry.getValue().getMean());
+        }
+
+        return shares;
+    }
+
+    /***
+     * Calculate event class(unique name) share of trace duration
+     * @param xTrace object to process
+     * @return map with event name and share
+     */
+    static public Map<String, Double> eventSharesInTrace(XTrace xTrace) {
+        Map<String, Double> shares = eventDurationInTrace(xTrace);
+
+        // divide by total trace duration
+        double duration = (double) getTraceDuration(xTrace);
+        shares.replaceAll((key, value) -> value / duration);
+
+        return shares;
+    }
+
+    /***
+     * Calculate event class(unique name) duration in trace
+     * @param xTrace object to process
+     * @return map with event name and duration
+     */
+    static public Map<String, Double> eventDurationInTrace(XTrace xTrace) {
+        Map<String, Double> durations = Maps.newHashMap();
+        Map<XEvent, ZonedDateTime> buffer = Maps.newHashMap();
+
+        if (xTrace.size() > 0) {
+            // let sort events first
+            Collections.sort(xTrace,
+                    (e1, e2) -> XTimeExtension.instance().extractTimestamp(e1)
+                            .compareTo(XTimeExtension.instance().extractTimestamp(e2)));
+            XEvent lastEvent = null;
+
+            for (XEvent xEvent: xTrace) {
+                if (lastEvent != null && !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION) ) {
+                    buffer.put(lastEvent, getTimeStamp(xEvent));
+                }
+                if (xEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
+                    if (XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.START)
+                    {
+                        buffer.put(xEvent, MINTIME);
+                    }
+                    else if (
+                            XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.COMPLETE
+                            ) {
+                        // we only support START and COMPLETE transitions
+                        // go back and update open event. We assume no nested events available, nor same event can run in parallel
+                        // TODO improve code to accepts mentioned cases
+                        String name = getIndex(xEvent);
+                        for (XEvent key: buffer.keySet()) {
+                            if (getIndex(key).equals(name) && buffer.get(key).equals(MINTIME)) {
+                                buffer.put(key, getTimeStamp(xEvent));
+                                break;
+                            }
+                        }
+                    }
+
+                }
+                else {
+                    buffer.put(xEvent, MINTIME);
+                }
+
+                lastEvent = xEvent;
+            }
+
+            // calculate total event durations
+            for(Map.Entry<XEvent, ZonedDateTime> entry: buffer.entrySet()) {
+                if (getTimeStamp(entry.getKey()).isBefore(entry.getValue())) {
+                    durations.put(getIndex(entry.getKey()),
+                            durations.getOrDefault(getIndex(entry.getKey()), 0D) +
+                                    Duration.between(getTimeStamp(entry.getKey()), entry.getValue()).getSeconds());
+                }
+            }
+        }
+        return durations;
+    }
+
+    /***
+     * Get event timestamp or MIN time of not present
+     * @param xEvent to process
+     * @return Zoned Time Date
+     */
+    static public ZonedDateTime getTimeStamp(XEvent xEvent) {
+        ZonedDateTime stamp = MINTIME;
+
+        if (xEvent.getExtensions().contains(XTimeExtension.instance())) {
+            stamp = ZonedDateTime.ofInstant(XTimeExtension.instance().extractTimestamp(xEvent).toInstant(), ZoneId.of("UTC"));
+        }
+
+        return stamp;
     }
 
     /* Private functions */
