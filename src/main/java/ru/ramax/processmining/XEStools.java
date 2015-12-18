@@ -14,10 +14,10 @@ import java.io.InputStream;
 import java.time.*;
 import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 
 /**
+ * Set of methods to work with XES logs
  * Created by nsitnikov on 16/12/15.
  */
 public class XEStools {
@@ -58,7 +58,7 @@ public class XEStools {
 
     /***
      * Select log to work with and clear cache
-     * @param xLog
+     * @param xLog - new XLog
      */
     public void setXLog(@NonNull XLog xLog) {
         this.xlog = xLog;
@@ -67,7 +67,7 @@ public class XEStools {
 
     /***
      * Return number of traces in log
-     * @return
+     * @return - number of traces. 0 if none
      */
     public int getXLogSize() {
         return xlog.size();
@@ -76,17 +76,15 @@ public class XEStools {
 
     /***
      * Find the start timestamp of the trace
-     * @param xTrace
+     * @param xTrace XTrace object to process
      * @param eventName name of the event to search for, null to consider all events
-     * @return LocalDateTime
+     * @return ZonedDateTime
      */
     static public ZonedDateTime traceStartTime(@NonNull XTrace xTrace, String eventName) {
         ZonedDateTime startTime = MINTIME;
 
         if (xTrace.size() > 0) {
-            ListIterator events = xTrace.listIterator();
-            while (events.hasNext()) {
-                XEvent xEvent = (XEvent)events.next(); // TODO switch to minimal date time, not first
+            for(XEvent xEvent: xTrace) {
                 if (eventName != null && !getAttribute(xEvent, "concept:name").equals(eventName)) continue;
                 ZonedDateTime current = (ZonedDateTime) getAttribute(xEvent, "time:timestamp");
 
@@ -103,8 +101,8 @@ public class XEStools {
 
     /***
      * Find startTime of the earliest event
-     * @param xTrace
-     * @return
+     * @param xTrace xTrace object to process
+     * @return zoned date time
      */
     static public ZonedDateTime traceStartTime(@NonNull XTrace xTrace) {
         return traceStartTime(xTrace, null);
@@ -113,7 +111,7 @@ public class XEStools {
     /***
      * Find the start timestamp of the trace based on trace concept:name
      * @param index Concept name to find
-     * @return
+     * @return zoned date time
      */
     public ZonedDateTime traceStartTime(@NonNull String index) {
         ZonedDateTime startTime = MINTIME;
@@ -130,7 +128,8 @@ public class XEStools {
     /***
      * Find the first timestamp of the trace based on trace concept:name
      * @param index Concept name to find
-     * @return
+     * @param eventName name of Event to look for or null
+     * @return zoned date time
      */
     public ZonedDateTime traceStartTime(@NonNull String index, String eventName) {
         ZonedDateTime startTime = MINTIME;
@@ -146,17 +145,15 @@ public class XEStools {
 
     /***
      * Find the last timestamp of the trace based on trace concept:name
-     * @param xTrace
+     * @param xTrace xTrace to process
      * @param eventName name of the event to search for, null to consider all events
-     * @return
+     * @return zoned date time
      */
     static public ZonedDateTime traceEndTime(@NonNull XTrace xTrace, String eventName) {
         ZonedDateTime endTime = MAXTIME;
 
         if (xTrace.size() > 0) {
-            ListIterator events = xTrace.listIterator();
-            while (events.hasNext()) {
-                XEvent xEvent = (XEvent)events.next(); // TODO switch to minimal date time, not first
+            for(XEvent xEvent: xTrace) {
                 if (eventName != null && !getAttribute(xEvent, "concept:name").equals(eventName)) continue;
                 ZonedDateTime current = (ZonedDateTime) getAttribute(xEvent, "time:timestamp");
 
@@ -174,7 +171,7 @@ public class XEStools {
     /***
      * Find the last timestamp of the trace based on trace concept:name
      * @param index Concept name to find
-     * @return
+     * @return zoned date time
      */
     public ZonedDateTime traceEndTime(@NonNull String index) {
         ZonedDateTime endTime = MAXTIME;
@@ -190,8 +187,8 @@ public class XEStools {
 
     /***
      * Find the last timestamp of the trace based on trace concept:name
-     * @param xTrace
-     * @return
+     * @param xTrace trace to process
+     * @return zoned date time
      */
     static public ZonedDateTime traceEndTime(@NonNull XTrace xTrace) {
         return  traceEndTime(xTrace, null);
@@ -200,7 +197,8 @@ public class XEStools {
     /***
      * Find the last timestamp of the trace based on trace concept:name
      * @param index Concept name to find
-     * @return
+     * @param eventName name of the event to search for, null to consider all events
+     * @return zoned date time
      */
     public ZonedDateTime traceEndTime(@NonNull String index, String eventName) {
         ZonedDateTime endTime = MAXTIME;
@@ -216,8 +214,8 @@ public class XEStools {
 
     /***
      * Find the duration of trace
-     * @param xTrace
-     * @return
+     * @param xTrace trace to process
+     * @return trace duration
      */
     static public Long getTraceDuration(@NonNull XTrace xTrace) {
         return getTraceDuration(xTrace, null, null);
@@ -227,7 +225,7 @@ public class XEStools {
     /***
      * Find the duration of trace based on trace concept:name
      * @param index Concept name to find trace
-     * @return
+     * @return trace duration
      */
     public Long getTraceDuration(@NonNull String index) {
         Long duration = 0L;
@@ -242,11 +240,11 @@ public class XEStools {
     }
 
     /***
-     * Calculate duration based on event names limits
-     * @param xTrace
-     * @param startEventName
-     * @param endEventName
-     * @return
+     * Calculate duration of trace segment based on event names limits
+     * @param xTrace trace to process
+     * @param startEventName start event name in trace. Null to remove limit
+     * @param endEventName end event name in trace. Null to remove limit
+     * @return trace/segment duration
      */
     static public Long getTraceDuration(@NonNull XTrace xTrace, String startEventName, String endEventName) {
         Long duration = 0L;
@@ -261,17 +259,15 @@ public class XEStools {
     }
 
     /***
-     * Return map of all traces durations limited by event names
-     * @param startEvent
-     * @param endEvent
-     * @return
+     * Return map of all traces/segments durations limited by event names
+     * @param startEvent start event name in trace. Null to remove limit
+     * @param endEvent end event name in trace. Null to remove limit
+     * @return map of trace/segment durations
      */
     public Map<String, Long> getTraceDurations(String startEvent, String endEvent) {
         Map <String, Long> durations = Maps.newHashMap();
 
-        Iterator traces = xlog.iterator();
-        while(traces.hasNext()) {
-            XTrace xTrace = (XTrace)traces.next();
+        for(XTrace xTrace: xlog) {
             durations.put(getIndex(xTrace), getTraceDuration(xTrace, startEvent, endEvent));
         }
 
@@ -280,7 +276,7 @@ public class XEStools {
 
     /***
      * Return trace durations for the whole log
-     * @return
+     * @return trace duration
      */
     public Map<String, Long> getTraceDurations() {
         return getTraceDurations(null, null);
@@ -288,22 +284,18 @@ public class XEStools {
 
 
     /***
-     * Returns the list of flat records filtered by filter providers
+     * Returns the list of flat trace segments filtered by filter providers
      * @param filter Map of filters as attribute name = allowed value. Value сan be regex
-     * @return
+     * @param startName event name of segment start
+     * @param endName event name of segment end
+     * @return list of trace segments with calculated statistics
      */
     public List<FlatXTrace> getFullSubTraceList(Map<String, String> filter, String startName, String endName) {
         List<FlatXTrace> traces = Lists.newArrayList();
 
-        Iterator traceIterator = xlog.iterator();
-        while(traceIterator.hasNext()) {
-            XTrace current = (XTrace) traceIterator.next();
+        for (XTrace current: xlog) {
 
             // TODO apply filter if any
-            if (filter != null && filter.size() > 0) {
-
-            }
-
             current = trimTrace(current, startName, endName);
             if (current != null && current.size() > 0) {
                 FlatXTrace flatXTrace = new FlatXTrace(current);
@@ -315,6 +307,13 @@ public class XEStools {
         return traces;
     }
 
+    /***
+     * Copy trace segment as separate trace
+     * @param trace trace to process
+     * @param startName name of segment starting event
+     * @param endName name of segment ending event
+     * @return trace or null if start/end combination do not exist in trace
+     */
     static public XTrace trimTrace(XTrace trace, String startName, String endName) {
         XTrace trimmed = (XTrace)trace.clone();
 
@@ -338,20 +337,13 @@ public class XEStools {
     /***
      * Returns the list of flat records filtered by filter providers
      * @param filter Map of filters as attribute name = allowed value. Value сan be regex
-     * @return
+     * @return map of traces
      */
     public List<FlatXTrace> getFullTraceList(Map<String, String> filter) {
         List<FlatXTrace> traces = Lists.newArrayList();
 
-        Iterator traceIterator = xlog.iterator();
-        while(traceIterator.hasNext()) {
-            XTrace current = (XTrace) traceIterator.next();
-
+        for(XTrace current: xlog) {
             // TODO apply filter if any
-            if (filter != null && filter.size() > 0) {
-
-            }
-
             FlatXTrace flatXTrace = new FlatXTrace(current);
             traces.add(flatXTrace);
 
@@ -365,7 +357,7 @@ public class XEStools {
      * @param xTrace trace to look into
      * @param attribute name attribute to receive
      * @param eventName event name to check
-     * @return org:resource value
+     * @return attribute value
      */
     static public String getTraceResource(XTrace xTrace, String attribute, String eventName) {
         String resource = "NA";
@@ -399,8 +391,8 @@ public class XEStools {
 
     /***
      * Search for trace by it's concept:name
-     * @param name
-     * @return
+     * @param name name to search for
+     * @return trace of null if not found
      */
     public XTrace getXTrace(String name) {
         XTrace xTrace = null;
@@ -411,10 +403,7 @@ public class XEStools {
             if (name2index.containsKey(name))
                 xTrace = xlog.get(name2index.get(name));
             else {
-                Iterator xTraceIterator = xlog.iterator();
-                while (xTraceIterator.hasNext()) {
-                    XTrace currentTrace = (XTrace) xTraceIterator.next();
-
+                for (XTrace currentTrace: xlog) {
                     if (getIndex(currentTrace).equals(name)) {
                         // TODO not first but minimal
                         xTrace = currentTrace;
@@ -432,8 +421,8 @@ public class XEStools {
 
     /***
      * Get object index
-     * @param object
-     * @return
+     * @param object object with attributes (event or trace)
+     * @return concept:name value
      */
     static public String getIndex(XAttributable object) {
         String index = null;
@@ -447,9 +436,9 @@ public class XEStools {
 
     /***
      * Get attribute value
-     * @param object
-     * @param name
-     * @return
+     * @param object object with attributes (event or trace)
+     * @param name attribute name
+     * @return attribute value
      */
     static public Object getAttribute(XAttributable object, String name) {
         Object value = null;
