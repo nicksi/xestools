@@ -422,5 +422,9 @@ public class XEStoolsTest
         assertTrue("Last event time 10:57 got " + traces.get(0).getStartTime(),
                 traces.get(0).getEndTime().equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
 
+        traces = xeStools.getFullSubTraceList(null, "event9", "event9");
+        assertTrue("List should be empty", traces.size() == 0);
+
+
     }
 }

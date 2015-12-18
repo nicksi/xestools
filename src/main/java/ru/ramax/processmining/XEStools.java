@@ -305,7 +305,7 @@ public class XEStools {
             }
 
             current = trimTrace(current, startName, endName);
-            if (current.size() > 0) {
+            if (current != null && current.size() > 0) {
                 FlatXTrace flatXTrace = new FlatXTrace(current);
                 traces.add(flatXTrace);
             }
