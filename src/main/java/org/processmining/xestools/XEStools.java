@@ -2,12 +2,14 @@ package org.processmining.xestools;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Range;
 import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
+import org.deckfour.xes.extension.std.XConceptExtension;
 import org.deckfour.xes.extension.std.XLifecycleExtension;
+import org.deckfour.xes.extension.std.XOrganizationalExtension;
 import org.deckfour.xes.extension.std.XTimeExtension;
-import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.in.XesXmlGZIPParser;
 import org.deckfour.xes.model.*;
 import org.processmining.xeslite.external.XFactoryExternalStore;
@@ -37,6 +39,17 @@ public class XEStools {
 
     @Getter
     private XLog xlog;
+
+    public enum FilterType {
+        EVENT_COUNT_RANGE,
+        RESOURCE_LIST,
+        ROLE_LIST,
+        GROUP_LIST,
+        LIFECYCLE_TRANSITION_LIST,
+        TRACE_START_RANGE,
+        TRACE_END_RANGE,
+        EVENT_NAME_LIST
+    }
 
     // cache to search for trace by concept:name
     private Map<String, Integer> name2index = Maps.newHashMap();
@@ -300,16 +313,17 @@ public class XEStools {
      * @param endName event name of segment end
      * @return list of trace segments with calculated statistics
      */
-    public List<FlatXTrace> getFullSubTraceList(Map<String, String> filter, String startName, String endName) {
+    public List<FlatXTrace> getFullSubTraceList(Map<FilterType, Object> filter, String startName, String endName) {
         List<FlatXTrace> traces = Lists.newArrayList();
 
         for (XTrace current: xlog) {
 
-            // TODO apply filter if any
             current = trimTrace(current, startName, endName);
             if (current != null && current.size() > 0) {
-                FlatXTrace flatXTrace = new FlatXTrace(current);
-                traces.add(flatXTrace);
+                if (filterMatch(filter, current)) {
+                    FlatXTrace flatXTrace = new FlatXTrace(current);
+                    traces.add(flatXTrace);
+                }
             }
 
         }
@@ -349,14 +363,14 @@ public class XEStools {
      * @param filter Map of filters as attribute name = allowed value. Value сan be regex
      * @return map of traces
      */
-    public List<FlatXTrace> getFullTraceList(Map<String, String> filter) {
+    public List<FlatXTrace> getFullTraceList(Map<FilterType, Object> filter) {
         List<FlatXTrace> traces = Lists.newArrayList();
 
         for(XTrace current: xlog) {
-            // TODO apply filter if any
-            FlatXTrace flatXTrace = new FlatXTrace(current);
-            traces.add(flatXTrace);
-
+            if (filterMatch(filter, current)) {
+                FlatXTrace flatXTrace = new FlatXTrace(current);
+                traces.add(flatXTrace);
+            }
         }
 
         return traces;
@@ -390,15 +404,6 @@ public class XEStools {
         return resource;
     }
 
-//    public Map<String, Long> getTraceDurationsWithResource(String filter) {
-//
-//    }
-//
-//    public Map<String, Long> getTraceDurationsWithResource(String filter) {
-//
-//    }
-
-
     /***
      * Search for trace by it's concept:name
      * @param name name to search for
@@ -415,7 +420,6 @@ public class XEStools {
             else {
                 for (XTrace currentTrace: xlog) {
                     if (getConceptName(currentTrace).equals(name)) {
-                        // TODO not first but minimal
                         xTrace = currentTrace;
                         name2index.put(name, i);
                         break;
@@ -458,7 +462,7 @@ public class XEStools {
                 if (XAttributeLiteral.class.isInstance(attribute)) {
                     value = ((XAttributeLiteral) attribute).getValue();
                 }
-                else if (XAttributeTimestamp.class.isInstance(attribute)) {
+                else if (attribute.getKey().equals(XTimeExtension.KEY_TIMESTAMP)) {
                     value = ZonedDateTime.ofInstant(((XAttributeTimestamp) attribute).getValue().toInstant(), ZoneId.of("UTC"));
                 }
             }
@@ -471,21 +475,23 @@ public class XEStools {
      * Calculate average share of event duration in trace on whole log
      * @param filter log filter to apply
      * @param useMedian mode of calculation - mean or median (better if skewed)
-     * @return
+     * @return map of event durations
      */
-    public Map<String, Double> eventDurationShares(Map<String, String> filter, boolean useMedian) {
+    public Map<String, Double> eventDurationShares(Map<FilterType, Object> filter, boolean useMedian) {
         Map<String, Double> shares = Maps.newHashMap();
         Map<String, DescriptiveStatistics> buffer = Maps.newHashMap();
 
         for(XTrace xTrace: xlog) {
-            Map<String, Double> traceShares = eventSharesInTrace(xTrace);
-            for (Map.Entry<String, Double> entry: traceShares.entrySet()) {
-                DescriptiveStatistics current = buffer.getOrDefault(entry.getKey(), new DescriptiveStatistics());
-                current.addValue(entry.getValue());
-                buffer.put(
-                        entry.getKey(),
-                        current
-                );
+            if (filterMatch(filter, xTrace)) {
+                Map<String, Double> traceShares = eventSharesInTrace(xTrace);
+                for (Map.Entry<String, Double> entry : traceShares.entrySet()) {
+                    DescriptiveStatistics current = buffer.getOrDefault(entry.getKey(), new DescriptiveStatistics());
+                    current.addValue(entry.getValue());
+                    buffer.put(
+                            entry.getKey(),
+                            current
+                    );
+                }
             }
         }
 
@@ -583,7 +589,7 @@ public class XEStools {
     static public ZonedDateTime getTimeStamp(XEvent xEvent) {
         ZonedDateTime stamp = MINTIME;
 
-        if (xEvent.getExtensions().contains(XTimeExtension.instance())) {
+        if (xEvent.getAttributes().containsKey(XTimeExtension.KEY_TIMESTAMP)) {
             stamp = ZonedDateTime.ofInstant(XTimeExtension.instance().extractTimestamp(xEvent).toInstant(), ZoneId.of("UTC"));
         }
 
@@ -600,6 +606,75 @@ public class XEStools {
         name2index.clear();
     }
 
+    /***
+     * Apply filter to the trace. ALL condition should match. empty filter always tru
+     * @param filter list of conditions
+     * @param xTrace trace to check
+     * @return true if trace match conditions
+     */
+    @SuppressWarnings("unchecked")
+    static private boolean filterMatch(Map<FilterType, Object> filter, XTrace xTrace) {
+        boolean verdict = true;
+        if (filter != null && filter.size() > 0) {
 
+            for (Map.Entry<FilterType, Object> rule : filter.entrySet()) {
+                if (rule.getValue() == null) continue;
+
+                if (rule.getKey().equals(FilterType.TRACE_START_RANGE)) {
+                    if (! ((Range)rule.getValue()).contains(traceStartTime(xTrace)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                if (rule.getKey().equals(FilterType.TRACE_END_RANGE)) {
+                    if (! ((Range)rule.getValue()).contains(traceEndTime(xTrace)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.EVENT_COUNT_RANGE)) {
+                    if (! ((Range)rule.getValue()).contains(xTrace.size()) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.RESOURCE_LIST)) {
+                    if (! ((List<String>)rule.getValue()).contains(getTraceResource(xTrace, XOrganizationalExtension.KEY_RESOURCE, null)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.ROLE_LIST)) {
+                    if (! ((List<String>)rule.getValue()).contains(getTraceResource(xTrace, XOrganizationalExtension.KEY_ROLE, null)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.GROUP_LIST)) {
+                    if (! ((List<String>)rule.getValue()).contains(getTraceResource(xTrace, XOrganizationalExtension.KEY_GROUP, null)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.LIFECYCLE_TRANSITION_LIST)) {
+                    if (! ((List<String>)rule.getValue()).contains(getTraceResource(xTrace, XLifecycleExtension.KEY_TRANSITION, null)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.EVENT_NAME_LIST)) {
+                    verdict = false;
+                    for(XEvent event: xTrace) {
+                        if (((List<String>) rule.getValue()).contains(getConceptName(event))) {
+                            verdict = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+        }
+        return verdict;
+    }
 
 }
