@@ -1,4 +1,4 @@
-package ru.ramax.processmining;
+package org.processmining.xestools;
 
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.in.XesXmlGZIPParser;
@@ -6,6 +6,7 @@ import org.deckfour.xes.model.XTrace;
 import org.junit.Test;
 
 import java.io.File;
+import java.net.URI;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Iterator;
@@ -15,6 +16,7 @@ import static junit.framework.TestCase.assertTrue;
 
 /**
  * Created by nsitnikov on 17/12/15.
+ * Attempt to read real life log
  */
 public class RealLogTest {
     @Test
@@ -22,11 +24,12 @@ public class RealLogTest {
         XesXmlGZIPParser parser = new XesXmlGZIPParser();
 
         URL url = RealLogTest.class.getClassLoader().getResource("out.xes.gz");
-        File file = new File(url.toURI());
+        URI uri = url.toURI();
+        assertNotNull("File not present", uri);
+        File file = new File(uri);
         assertNotNull("File should be present", file);
         assertTrue("File should be parsable", parser.canParse(file));
 
-        XFactoryNaiveImpl xFactory = new XFactoryNaiveImpl();
         XEStools parsed = new XEStools();
         boolean result = parsed.parseLog(Paths.get(url.toURI()).toString());
         assertTrue("Log should be parsed", result);

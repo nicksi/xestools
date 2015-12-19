@@ -1,4 +1,4 @@
-package ru.ramax.processmining;
+package org.processmining.xestools;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -6,10 +6,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.deckfour.xes.model.XTrace;
 
-import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 
-import static ru.ramax.processmining.XEStools.*;
+import static org.processmining.xestools.XEStools.*;
 
 /**
  * Created by Nikolai Sitnikov on 17.12.15.

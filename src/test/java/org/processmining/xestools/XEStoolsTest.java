@@ -1,6 +1,7 @@
-package ru.ramax.processmining;
+package org.processmining.xestools;
 
 import com.google.common.collect.Maps;
+import junit.framework.TestCase;
 import org.deckfour.xes.classification.XEventNameClassifier;
 import org.deckfour.xes.extension.std.XConceptExtension;
 import org.deckfour.xes.extension.std.XLifecycleExtension;
@@ -16,6 +17,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+import org.processmining.xeslite.external.XFactoryExternalStore;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -30,7 +32,6 @@ import java.util.Map;
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
-import static ru.ramax.processmining.XEStools.*;
 
 /**
  * Unit test for simple App.
@@ -44,13 +45,13 @@ public class XEStoolsTest
     static private final ZonedDateTime MAXTIME = ZonedDateTime.of(LocalDateTime.MAX, ZoneId.systemDefault());
 
     private XLog emptyLog;
-    private XFactoryNaiveImpl xFactory;
+    private XFactoryExternalStore.MapDBDiskImpl xFactory;
 
     @Before
     public void setUp()
     {
         // create XLOG
-        xFactory = new XFactoryNaiveImpl();
+        xFactory = new XFactoryExternalStore.MapDBDiskImpl();
 
         XAttributeMap logAttributes = xFactory.createAttributeMap();
         logAttributes.put("process", xFactory.createAttributeLiteral("concept:name", "Test transaction", XConceptExtension.instance()));
@@ -170,10 +171,10 @@ public class XEStoolsTest
         start = xeStools.traceStartTime("test");
         assertTrue("Should match first event (name). Expected 10:00, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
-        start = traceStartTime(xTrace);
+        start = XEStools.traceStartTime(xTrace);
         assertTrue("Should match first event (trace). Expected 10:00, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
 
-        start = traceStartTime(xTrace, "event1");
+        start = XEStools.traceStartTime(xTrace, "event1");
         assertTrue("Should match first event (trace) of type event1. Expected 10:30, got "+ start.toString(), start.equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
 
         start = xeStools.traceStartTime("test", "event1");
@@ -183,10 +184,10 @@ public class XEStoolsTest
         end = xeStools.traceEndTime("test");
         assertTrue("Should match last event (name). Expected 10:40, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
-        end = traceEndTime(xTrace);
+        end = XEStools.traceEndTime(xTrace);
         assertTrue("Should match last event (trace). Expected 10:40, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,40,0,0, ZoneId.of("UTC"))));
 
-        end = traceEndTime(xTrace, "event2");
+        end = XEStools.traceEndTime(xTrace, "event2");
         assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
         end = xeStools.traceEndTime("test", "event2");
         assertTrue("Should match last event (trace) of type event2. Expected 10:00, got "+ end.toString(), end.equals(ZonedDateTime.of(2015,1,1,10,0,0,0, ZoneId.of("UTC"))));
@@ -236,13 +237,13 @@ public class XEStoolsTest
         Long duration = xeStools.getTraceDuration("test");
         assertTrue("Test duration calculation. Expected 2400 got "+duration, duration == 2400);
 
-        duration = getTraceDuration(xTrace);
+        duration = XEStools.getTraceDuration(xTrace);
         assertTrue("Test duration calculation. Expected 2400 got "+duration, duration == 2400);
 
-        duration = getTraceDuration(xTrace, "event1", "event1");
+        duration = XEStools.getTraceDuration(xTrace, "event1", "event1");
         assertTrue("Test duration calculation. Expected 2400 got "+duration, duration == 600);
 
-        duration = getTraceDuration(xTrace, "event", "event1");
+        duration = XEStools.getTraceDuration(xTrace, "event", "event1");
         assertTrue("Test duration calculation. Expected 0 got "+duration, duration == 0);
     }
 
@@ -404,10 +405,10 @@ public class XEStoolsTest
         XTrace segment = XEStools.trimTrace(trace, "event2", "event3");
         assertNotNull("Segment should be generated", segment);
         assertTrue("Should be 5 events, got "+segment.size(), segment.size() == 5);
-        assertTrue("First event time 10:30 got " + traceStartTime(segment),
-                traceStartTime(segment).equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
-        assertTrue("Last event time 10:57 got " + traceEndTime(segment),
-                traceEndTime(segment).equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
+        TestCase.assertTrue("First event time 10:30 got " + XEStools.traceStartTime(segment),
+                XEStools.traceStartTime(segment).equals(ZonedDateTime.of(2015,1,1,10,30,0,0, ZoneId.of("UTC"))));
+        TestCase.assertTrue("Last event time 10:57 got " + XEStools.traceEndTime(segment),
+                XEStools.traceEndTime(segment).equals(ZonedDateTime.of(2015,1,1,10,57,0,0, ZoneId.of("UTC"))));
 
         segment = XEStools.trimTrace(trace, "event4", "event4");
         assertTrue("Should be 1 event, got "+segment.size(), segment.size() == 1);
@@ -497,16 +498,16 @@ public class XEStoolsTest
         XTimeExtension.instance().assignTimestamp(xEvent6, Instant.parse("2015-01-01T10:40:00.00Z").toEpochMilli());
         xTrace2.add(xEvent6);
 
-        Map<String, Double> durations = eventDurationInTrace(xTrace);
+        Map<String, Double> durations = XEStools.eventDurationInTrace(xTrace);
         assertTrue("There are two classes of events in trace, got "+ durations.size(), durations.size() == 2);
         assertTrue("The event2 duration is 1800 seconds, got "+durations.get("event2"), durations.get("event2") == 1800D);
         assertTrue("The event1 duration is 1200 seconds, got "+durations.get("event1"), durations.get("event1") == 1200D);
-        Map<String, Double> shares = eventSharesInTrace(xTrace);
+        Map<String, Double> shares = XEStools.eventSharesInTrace(xTrace);
         assertTrue("There are two classes of events in trace, got "+ shares.size(), shares.size() == 2);
         assertTrue("The event2 share is 1800D/2700D, got "+shares.get("event2"), shares.get("event2") == 1800D/2700D);
         assertTrue("The event1 duration is 1200D/2700D, got "+shares.get("event1"), shares.get("event1") == 1200D/2700D);
 
-        shares = eventSharesInTrace(xTrace2);
+        shares = XEStools.eventSharesInTrace(xTrace2);
         assertTrue("There are two classes of events in trace, got "+ shares.size(), shares.size() == 2);
         assertTrue("The event2 share is 1800D/2700D, got "+shares.get("event2"), shares.get("event2") == 1800D/2400D);
         assertTrue("The event1 duration is 600D/2700D, got "+shares.get("event1"), shares.get("event1") == 600D/2400D);

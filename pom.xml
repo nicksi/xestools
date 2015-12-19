@@ -3,11 +3,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>ru.ramax.processmining</groupId>
-    <artifactId>knoa2xes</artifactId>
-    <version>1.0</version>
+    <artifactId>xestools</artifactId>
+    <version>1.1</version>
     <packaging>jar</packaging>
 
-    <name>knoa2xes</name>
+    <name>xestools</name>
     <url>http://maven.apache.org</url>
 
     <properties>
@@ -26,6 +26,18 @@
             <groupId>org.deckfour.spex</groupId>
             <artifactId>spex</artifactId>
             <version>1.0-RC2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.processmining.xeslite</groupId>
+            <artifactId>xeslite</artifactId>
+            <version>6.5.155</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mapdb</groupId>
+            <artifactId>mapdb</artifactId>
+            <version>2.0-beta12</version>
         </dependency>
 
         <dependency>

@@ -1,8 +1,7 @@
-package ru.ramax.processmining;
+package org.processmining.xestools;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multiset;
 import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
@@ -11,6 +10,7 @@ import org.deckfour.xes.extension.std.XTimeExtension;
 import org.deckfour.xes.factory.XFactoryNaiveImpl;
 import org.deckfour.xes.in.XesXmlGZIPParser;
 import org.deckfour.xes.model.*;
+import org.processmining.xeslite.external.XFactoryExternalStore;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+
+import static org.processmining.log.utils.XUtils.getConceptName;
 
 /**
  * Set of methods to work with XES logs
@@ -49,7 +51,7 @@ public class XEStools {
 
     public boolean parseLog(String filename) {
         try {
-            XesXmlGZIPParser parser = new XesXmlGZIPParser(new XFactoryNaiveImpl());
+            XesXmlGZIPParser parser = new XesXmlGZIPParser(new XFactoryExternalStore.MapDBDiskImpl());
             File file = new File(filename);
             if (parser.canParse(file)) {
                 InputStream inputStream = new FileInputStream(file);
@@ -276,7 +278,7 @@ public class XEStools {
         Map <String, Long> durations = Maps.newHashMap();
 
         for(XTrace xTrace: xlog) {
-            durations.put(getIndex(xTrace), getTraceDuration(xTrace, startEvent, endEvent));
+            durations.put(getConceptName(xTrace), getTraceDuration(xTrace, startEvent, endEvent));
         }
 
         return durations;
@@ -412,7 +414,7 @@ public class XEStools {
                 xTrace = xlog.get(name2index.get(name));
             else {
                 for (XTrace currentTrace: xlog) {
-                    if (getIndex(currentTrace).equals(name)) {
+                    if (getConceptName(currentTrace).equals(name)) {
                         // TODO not first but minimal
                         xTrace = currentTrace;
                         name2index.put(name, i);
@@ -425,21 +427,6 @@ public class XEStools {
         }
 
         return xTrace;
-    }
-
-    /***
-     * Get object index
-     * @param object object with attributes (event or trace)
-     * @return concept:name value
-     */
-    static public String getIndex(XAttributable object) {
-        String index = null;
-
-        if (XTrace.class.isInstance(object) || XEvent.class.isInstance(object)) {
-            index = (String)getAttribute(object, "concept:name");
-        }
-
-        return index;
     }
 
     /***
@@ -559,9 +546,9 @@ public class XEStools {
                         // we only support START and COMPLETE transitions
                         // go back and update open event. We assume no nested events available, nor same event can run in parallel
                         // TODO improve code to accepts mentioned cases
-                        String name = getIndex(xEvent);
+                        String name = getConceptName(xEvent);
                         for (XEvent key: buffer.keySet()) {
-                            if (getIndex(key).equals(name) && buffer.get(key).equals(MINTIME)) {
+                            if (getConceptName(key).equals(name) && buffer.get(key).equals(MINTIME)) {
                                 buffer.put(key, getTimeStamp(xEvent));
                                 break;
                             }
@@ -579,8 +566,8 @@ public class XEStools {
             // calculate total event durations
             for(Map.Entry<XEvent, ZonedDateTime> entry: buffer.entrySet()) {
                 if (getTimeStamp(entry.getKey()).isBefore(entry.getValue())) {
-                    durations.put(getIndex(entry.getKey()),
-                            durations.getOrDefault(getIndex(entry.getKey()), 0D) +
+                    durations.put(getConceptName(entry.getKey()),
+                            durations.getOrDefault(getConceptName(entry.getKey()), 0D) +
                                     Duration.between(getTimeStamp(entry.getKey()), entry.getValue()).getSeconds());
                 }
             }
