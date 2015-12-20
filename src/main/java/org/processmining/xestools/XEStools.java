@@ -1,8 +1,6 @@
 package org.processmining.xestools;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Range;
+import com.google.common.collect.*;
 import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
@@ -17,10 +15,7 @@ import org.processmining.xeslite.external.XFactoryExternalStore;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.time.Duration;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -48,7 +43,9 @@ public class XEStools {
         LIFECYCLE_TRANSITION_LIST,
         TRACE_START_RANGE,
         TRACE_END_RANGE,
-        EVENT_NAME_LIST
+        EVENT_NAME_LIST,
+        TRACE_START_WEEKDAY_LIST,
+        TRACE_END_WEEKDAY_LIST
     }
 
     // cache to search for trace by concept:name
@@ -535,39 +532,9 @@ public class XEStools {
             Collections.sort(xTrace,
                     (e1, e2) -> XTimeExtension.instance().extractTimestamp(e1)
                             .compareTo(XTimeExtension.instance().extractTimestamp(e2)));
-            XEvent lastEvent = null;
 
-            for (XEvent xEvent: xTrace) {
-                if (lastEvent != null && !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION) ) {
-                    buffer.put(lastEvent, getTimeStamp(xEvent));
-                }
-                if (xEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
-                    if (XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.START)
-                    {
-                        buffer.put(xEvent, MINTIME);
-                    }
-                    else if (
-                            XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.COMPLETE
-                            ) {
-                        // we only support START and COMPLETE transitions
-                        // go back and update open event. We assume no nested events available, nor same event can run in parallel
-                        // TODO improve code to accepts mentioned cases
-                        String name = getConceptName(xEvent);
-                        for (XEvent key: buffer.keySet()) {
-                            if (getConceptName(key).equals(name) && buffer.get(key).equals(MINTIME)) {
-                                buffer.put(key, getTimeStamp(xEvent));
-                                break;
-                            }
-                        }
-                    }
 
-                }
-                else {
-                    buffer.put(xEvent, MINTIME);
-                }
-
-                lastEvent = xEvent;
-            }
+            buffer = calculateEventsEndTime(xTrace, 0L);
 
             // calculate total event durations
             for(Map.Entry<XEvent, ZonedDateTime> entry: buffer.entrySet()) {
@@ -594,6 +561,67 @@ public class XEStools {
         }
 
         return stamp;
+    }
+
+    /***
+     * Calculate workload table (resource name, time, workload in seconds)
+     * @param filter
+     * @return
+     */
+    public List<Workload> calculateResourceWorkload(Map <FilterType, Object> filter) {
+        Table<String, ZonedDateTime, Workload> workloads = HashBasedTable.create();
+
+        // TODO extend hourly granularity to other levels
+        for (XTrace xTrace: xlog) {
+            if (filterMatch(filter, xTrace)) {
+                // calculate event durations in trace
+                Map<XEvent, ZonedDateTime> events = calculateEventsEndTime(xTrace, 600L);
+
+                for(Map.Entry<XEvent, ZonedDateTime> entry: events.entrySet()) {
+
+                    String resource = (String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_RESOURCE);
+                    if (resource == null ) resource = "NA";
+
+                    String role = (String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_ROLE);
+                    if (role == null ) role = "NA";
+
+                    String group = (String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_GROUP);
+                    if (group == null ) group = "NA";
+
+                    ZonedDateTime stamp = getTimeStamp(entry.getKey());
+                    Duration duration = Duration.between(stamp, entry.getValue());
+
+                    // first hour
+                    ZonedDateTime hour = getTimeStamp(entry.getKey()).withMinute(0).withSecond(0);
+                    Workload workload;
+                    if (workloads.contains(resource, hour))
+                        workload = workloads.get(resource, hour);
+                    else
+                        workload = new Workload(resource, role, group, hour, 0L);
+
+                    int firstHour = 3600 - stamp.getMinute()*60 - stamp.getSecond();
+                    workload.setWorkload(workload.getWorkload() + Math.min(duration.getSeconds(), firstHour ));
+                    workloads.put(resource, hour, workload);
+
+                    duration = duration.minusSeconds(firstHour);
+
+                    while (duration.getSeconds() > 0) {
+                        hour = hour.plusHours(1);
+                        if (workloads.contains(resource, hour))
+                            workload = workloads.get(resource, hour);
+                        else
+                            workload = new Workload(resource, role, group, hour, 0L);
+
+                        workload.setWorkload(workload.getWorkload() + Math.min(3600, duration.getSeconds() ));
+                        workloads.put(resource, hour, workload);
+
+                        duration = duration.minusSeconds(3600);
+                    }
+                }
+            }
+        }
+
+        return Lists.newArrayList(workloads.values());
     }
 
     /* Private functions */
@@ -671,10 +699,74 @@ public class XEStools {
                         }
                     }
                 }
+                else if (rule.getKey().equals(FilterType.TRACE_START_WEEKDAY_LIST)) {
+                    if (! ((List<DayOfWeek>)rule.getValue()).contains(traceStartTime(xTrace).getDayOfWeek()) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.TRACE_END_WEEKDAY_LIST)) {
+                    if (! ((List<DayOfWeek>)rule.getValue()).contains(traceEndTime(xTrace).getDayOfWeek()) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
             }
 
         }
         return verdict;
     }
 
+
+    /***
+     * Determine end time for events in trace based on lifecycle or event sequence. Last event in trace
+     * (without lifecycle) will have fixed duration
+     * @param xTrace trace with events
+     * @param defaultDuration default last event duration in seconds
+     * @return map of event and event end time
+     */
+    static private Map<XEvent, ZonedDateTime> calculateEventsEndTime(XTrace xTrace, Long defaultDuration) {
+        Map<XEvent, ZonedDateTime> buffer = Maps.newHashMap();
+        XEvent lastEvent = null;
+
+        for (XEvent xEvent: xTrace) {
+            if (lastEvent != null && !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION) ) {
+                buffer.put(lastEvent, getTimeStamp(xEvent));
+            }
+            if (xEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
+                if (XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.START)
+                {
+                    buffer.put(xEvent, MINTIME);
+                }
+                else if (
+                        XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.COMPLETE
+                        ) {
+                    // we only support START and COMPLETE transitions
+                    // go back and update open event. We assume no nested events available, nor same event can run in parallel
+                    // TODO improve code to accepts mentioned cases
+                    String name = getConceptName(xEvent);
+                    for (XEvent key: buffer.keySet()) {
+                        if (getConceptName(key).equals(name) && buffer.get(key).equals(MINTIME)) {
+                            buffer.put(key, getTimeStamp(xEvent));
+                            break;
+                        }
+                    }
+                }
+
+            }
+            else {
+                buffer.put(xEvent, MINTIME);
+            }
+
+            lastEvent = xEvent;
+        }
+
+        if (defaultDuration > 0 &&
+                lastEvent != null &&
+                !(lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION))) {
+            buffer.put(lastEvent, getTimeStamp(lastEvent).plusSeconds(defaultDuration));
+        }
+
+        return buffer;
+    }
 }

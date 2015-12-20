@@ -6,7 +6,9 @@ import com.google.common.collect.Maps;
 import org.deckfour.xes.extension.std.XOrganizationalExtension;
 import org.deckfour.xes.extension.std.XTimeExtension;
 import org.deckfour.xes.model.XLog;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 import org.processmining.log.utils.XLogBuilder;
 
 import java.time.Instant;
@@ -25,6 +27,9 @@ import static org.junit.Assert.assertTrue;
  * Just broke test in two files
  */
 public class XESTools2Test {
+
+    @Rule
+    public Timeout globalTimeout= new Timeout(10000);
 
     @Test
     public void filterTest() {
@@ -96,8 +101,52 @@ public class XESTools2Test {
         filter.put(XEStools.FilterType.EVENT_NAME_LIST, Lists.newArrayList("event 3"));
         filtered = xeStools.getFullTraceList(filter);
         assertTrue("Should be no trace, got " + filtered.size(), filtered.size() == 0);
+    }
 
+    @Test
+    public void workloadMatrixTest() {
+        XLog alog = XLogBuilder.newInstance().startLog("FILTER TEST")
+                .addTrace("test 1")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T10:00:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addEvent("event 2")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T11:10:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "SIDOROV")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T12:30:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addTrace("test 2")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-02T10:00:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "PETROV")
+                .addEvent("event 2")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-02T10:10:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "PETROV")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-02T10:30:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addTrace("test 3")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T19:00:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addEvent("event 3")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T19:40:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .build();
 
+        assertTrue("Log should have 3 traces, got "+ alog.size(), alog.size() == 3);
+
+        XEStools xeStools = new XEStools(alog);
+        assertTrue("Log still should be 3 traces, got "+xeStools.getXLogSize(), xeStools.getXLogSize() == 3);
+
+        List<Workload> matrix = xeStools.calculateResourceWorkload(null);
+        assertTrue("There should be 6 records, got "+ matrix.size(), matrix.size() == 8);
+        assertTrue("2nd workload event should be SIDOROV, got " + matrix.get(1).getResource(), matrix.get(1).getResource().equals("SIDOROV"));
+        assertTrue("2nd workload event duration should be 3000, got " + matrix.get(1).getWorkload(), matrix.get(1).getWorkload() == 3000);
+        assertTrue("2nd workload event should be at 11:00, got " + matrix.get(1).getTimestamp(), matrix.get(1).getTimestamp().equals(ZonedDateTime.ofInstant(Instant.parse("2015-01-01T11:00:00.00Z"), ZoneId.of("UTC"))));
+        assertTrue("8th workload event should be PETROV, got " + matrix.get(7).getResource(), matrix.get(7).getResource().equals("PETROV"));
+        assertTrue("8th workload event duration should be 1800, got " + matrix.get(7).getWorkload(), matrix.get(7).getWorkload() == 1800);
 
     }
 }
