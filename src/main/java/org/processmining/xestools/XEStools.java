@@ -545,12 +545,6 @@ public class XEStools {
         Map<XEvent, ZonedDateTime> buffer = Maps.newHashMap();
 
         if (xTrace.size() > 0) {
-            // let sort events first
-            Collections.sort(xTrace,
-                    (e1, e2) -> XTimeExtension.instance().extractTimestamp(e1)
-                            .compareTo(XTimeExtension.instance().extractTimestamp(e2)));
-
-
             buffer = calculateEventsEndTime(xTrace, 0L);
 
             // calculate total event durations
@@ -774,10 +768,16 @@ public class XEStools {
      */
     static private Map<XEvent, ZonedDateTime> calculateEventsEndTime(XTrace xTrace, Long defaultDuration) {
         Map<XEvent, ZonedDateTime> buffer = Maps.newHashMap();
+
+        // let sort events first
+        Collections.sort(xTrace,
+                (e1, e2) -> XTimeExtension.instance().extractTimestamp(e1)
+                        .compareTo(XTimeExtension.instance().extractTimestamp(e2)));
+
         XEvent lastEvent = null;
 
         for (XEvent xEvent: xTrace) {
-            if (lastEvent != null && !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION) ) {
+            if (lastEvent != null && !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
                 buffer.put(lastEvent, getTimeStamp(xEvent));
             }
             if (xEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
@@ -792,11 +792,21 @@ public class XEStools {
                     // go back and update open event. We assume no nested events available, nor same event can run in parallel
                     // TODO improve code to accepts mentioned cases
                     String name = getConceptName(xEvent);
+                    boolean success = false;
                     for (XEvent key: buffer.keySet()) {
-                        if (getConceptName(key).equals(name) && buffer.get(key).equals(MINTIME)) {
+                        if (
+                                getConceptName(key).equals(name) &&
+                                XLifecycleExtension.instance().extractStandardTransition(key) == XLifecycleExtension.StandardModel.START &&
+                                buffer.get(key).equals(MINTIME)
+                            ) {
                             buffer.put(key, getTimeStamp(xEvent));
+                            success = true;
                             break;
                         }
+                    }
+
+                    if (! success ) {
+                        buffer.put(xEvent, MINTIME);
                     }
                 }
 
@@ -808,10 +818,11 @@ public class XEStools {
             lastEvent = xEvent;
         }
 
-        if (defaultDuration > 0 &&
-                lastEvent != null &&
-                !(lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION))) {
-            buffer.put(lastEvent, getTimeStamp(lastEvent).plusSeconds(defaultDuration));
+        if (defaultDuration > 0 ) {
+            for (Map.Entry<XEvent, ZonedDateTime> entry: buffer.entrySet()) {
+                if (entry.getValue().equals(MINTIME))
+                    buffer.put(entry.getKey(), getTimeStamp(entry.getKey()).plusSeconds(defaultDuration));
+            }
         }
 
         return buffer;
