@@ -1,6 +1,7 @@
 package org.processmining.xestools;
 
-import org.deckfour.xes.factory.XFactoryNaiveImpl;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.deckfour.xes.in.XesXmlGZIPParser;
 import org.deckfour.xes.model.XTrace;
 import org.junit.Test;
@@ -10,6 +11,8 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import static junit.framework.TestCase.assertNotNull;
 import static junit.framework.TestCase.assertTrue;
@@ -48,6 +51,24 @@ public class RealLogTest {
             }
         }
         assertTrue("All traces has at least 3 events", !lessThen3);
+
+        //String name = "709340";
+        String name = "710400";
+        xTrace = parsed.getXTrace(name);
+        assertNotNull("Trace " + name + " should be present", xTrace);
+        assertTrue("Trace has 122 events, count is " + xTrace.size(), xTrace.size() == 122);
+        assertTrue("Trace start time should be before end time", XEStools.traceStartTime(xTrace).isBefore(XEStools.traceEndTime(xTrace)));
+
+        Map<XEStools.FilterType, Object> filter = Maps.newHashMap();
+        filter.put(XEStools.FilterType.TRACE_NAME_LIST, Lists.newArrayList(name));
+
+        List<FlatXTrace> trace = parsed.getFullTraceList(filter);
+        assertTrue("Trace " + name + " should be present", trace.size() == 1);
+        assertTrue("Start dates should match", XEStools.traceStartTime(xTrace).equals(trace.get(0).getStartTime()));
+        assertTrue("End dates should match", XEStools.traceEndTime(xTrace).equals(trace.get(0).getEndTime()));
+
+        List<FlatXEvent> eventList = parsed.getEventList(filter);
+        assertTrue("Expected number of events 62, got " + eventList.size(), eventList.size()==62);
 
     }
 }

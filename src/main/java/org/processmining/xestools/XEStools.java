@@ -32,6 +32,8 @@ public class XEStools {
     static private final ZonedDateTime MINTIME = ZonedDateTime.of(LocalDateTime.MIN, ZoneId.systemDefault());
     static private final ZonedDateTime MAXTIME = ZonedDateTime.of(LocalDateTime.MAX, ZoneId.systemDefault());
 
+    private static final long EVENT_DEFAULT_DURATION = 600L;
+
     @Getter
     private XLog xlog;
 
@@ -45,7 +47,8 @@ public class XEStools {
         TRACE_END_RANGE,
         EVENT_NAME_LIST,
         TRACE_START_WEEKDAY_LIST,
-        TRACE_END_WEEKDAY_LIST
+        TRACE_END_WEEKDAY_LIST,
+        TRACE_NAME_LIST
     }
 
     // cache to search for trace by concept:name
@@ -437,6 +440,17 @@ public class XEStools {
      * @return attribute value
      */
     static public Object getAttribute(XAttributable object, String name) {
+        return getAttribute(object, name, null);
+    }
+
+    /***
+     * Get attribute value
+     * @param object object with attributes (event or trace)
+     * @param name attribute name
+     * @param defaultValue value if attribute is missing
+     * @return attribute value
+     */
+    static public Object getAttribute(XAttributable object, String name, Object defaultValue) {
         Object value = null;
 
         if (object.hasAttributes()) {
@@ -462,6 +476,9 @@ public class XEStools {
                 else if (attribute.getKey().equals(XTimeExtension.KEY_TIMESTAMP)) {
                     value = ZonedDateTime.ofInstant(((XAttributeTimestamp) attribute).getValue().toInstant(), ZoneId.of("UTC"));
                 }
+            }
+            else {
+                value = defaultValue;
             }
         }
 
@@ -575,7 +592,7 @@ public class XEStools {
         for (XTrace xTrace: xlog) {
             if (filterMatch(filter, xTrace)) {
                 // calculate event durations in trace
-                Map<XEvent, ZonedDateTime> events = calculateEventsEndTime(xTrace, 600L);
+                Map<XEvent, ZonedDateTime> events = calculateEventsEndTime(xTrace, EVENT_DEFAULT_DURATION);
 
                 for(Map.Entry<XEvent, ZonedDateTime> entry: events.entrySet()) {
 
@@ -622,6 +639,30 @@ public class XEStools {
         }
 
         return Lists.newArrayList(workloads.values());
+    }
+
+    public List<FlatXEvent> getEventList(Map<FilterType, Object> filter) {
+        List<FlatXEvent> events = Lists.newArrayList();
+
+        for (XTrace xTrace: xlog) {
+            if (filterMatch(filter, xTrace)) {
+                Map<XEvent, ZonedDateTime> eventList = calculateEventsEndTime(xTrace, EVENT_DEFAULT_DURATION);
+                for(Map.Entry<XEvent, ZonedDateTime> entry: eventList.entrySet()) {
+                    FlatXEvent event = new FlatXEvent();
+                    event.setResource((String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_RESOURCE, "NA"));
+                    event.setRole((String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_ROLE, "NA"));
+                    event.setGroup((String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_GROUP, "NA"));
+                    event.setName(getConceptName(entry.getKey()));
+                    event.setTrace(getConceptName(xTrace));
+                    event.setStart(getTimeStamp(entry.getKey()));
+                    event.setEnd(entry.getValue());
+
+                    events.add(event);
+                }
+            }
+        }
+
+        return events;
     }
 
     /* Private functions */
@@ -686,6 +727,12 @@ public class XEStools {
                 }
                 else if (rule.getKey().equals(FilterType.LIFECYCLE_TRANSITION_LIST)) {
                     if (! ((List<String>)rule.getValue()).contains(getTraceResource(xTrace, XLifecycleExtension.KEY_TRANSITION, null)) ) {
+                        verdict = false;
+                        break;
+                    }
+                }
+                else if (rule.getKey().equals(FilterType.TRACE_NAME_LIST)) {
+                    if (! ((List<String>)rule.getValue()).contains(getConceptName(xTrace)) ) {
                         verdict = false;
                         break;
                     }

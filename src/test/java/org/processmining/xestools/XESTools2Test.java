@@ -149,4 +149,48 @@ public class XESTools2Test {
         assertTrue("8th workload event duration should be 1800, got " + matrix.get(7).getWorkload(), matrix.get(7).getWorkload() == 1800);
 
     }
+
+    @Test
+    public void getEventsTest() {
+        XLog alog = XLogBuilder.newInstance().startLog("FILTER TEST")
+                .addTrace("test 1")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T10:00:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addEvent("event 2")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T10:10:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T10:30:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addTrace("test 2")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-02T10:00:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "PETROV")
+                .addEvent("event 2")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-02T10:10:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "PETROV")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-02T10:30:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "PETROV")
+                .addTrace("test 3")
+                .addEvent("event 1")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T19:00:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .addEvent("event 3")
+                .addAttribute(XTimeExtension.KEY_TIMESTAMP, Date.from(Instant.parse("2015-01-01T19:10:00.00Z")))
+                .addAttribute(XOrganizationalExtension.KEY_RESOURCE, "IVANOV")
+                .build();
+
+        assertTrue("Log should have 3 traces, got "+ alog.size(), alog.size() == 3);
+
+        XEStools xeStools = new XEStools(alog);
+        assertTrue("Log still should be 3 traces, got "+xeStools.getXLogSize(), xeStools.getXLogSize() == 3);
+
+        Map<XEStools.FilterType, Object> filter = Maps.newHashMap();
+        filter.put(XEStools.FilterType.RESOURCE_LIST, Lists.newArrayList("PETROV"));
+        List<FlatXEvent> flatXEvents = xeStools.getEventList(filter);
+        assertTrue("List should have 3 events, got " + flatXEvents.size(), flatXEvents.size() == 3);
+
+    }
 }
