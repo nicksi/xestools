@@ -777,9 +777,18 @@ public class XEStools {
         XEvent lastEvent = null;
 
         for (XEvent xEvent: xTrace) {
-            if (lastEvent != null && !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
+            if (
+                    lastEvent != null &&
+                    (
+                            !lastEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION) ||
+                            XLifecycleExtension.instance().extractStandardTransition(lastEvent) == XLifecycleExtension.StandardModel.COMPLETE
+                    )
+            ) {
                 buffer.put(lastEvent, getTimeStamp(xEvent));
             }
+
+            lastEvent = xEvent;
+
             if (xEvent.getAttributes().containsKey(XLifecycleExtension.KEY_TRANSITION)) {
                 if (XLifecycleExtension.instance().extractStandardTransition(xEvent) == XLifecycleExtension.StandardModel.START)
                 {
@@ -808,6 +817,9 @@ public class XEStools {
                     if (! success ) {
                         buffer.put(xEvent, MINTIME);
                     }
+                    else {
+                        lastEvent = null; // skip complete event
+                    }
                 }
 
             }
@@ -815,7 +827,6 @@ public class XEStools {
                 buffer.put(xEvent, MINTIME);
             }
 
-            lastEvent = xEvent;
         }
 
         if (defaultDuration > 0 ) {
