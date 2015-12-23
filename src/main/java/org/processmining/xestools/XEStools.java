@@ -32,7 +32,7 @@ public class XEStools {
     static private final ZonedDateTime MINTIME = ZonedDateTime.of(LocalDateTime.MIN, ZoneId.systemDefault());
     static private final ZonedDateTime MAXTIME = ZonedDateTime.of(LocalDateTime.MAX, ZoneId.systemDefault());
 
-    private static final long EVENT_DEFAULT_DURATION = 600L;
+    private static final long EVENT_DEFAULT_DURATION = 60L;
 
     @Getter
     private XLog xlog;
