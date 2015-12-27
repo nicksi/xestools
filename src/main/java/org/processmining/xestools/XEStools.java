@@ -4,10 +4,10 @@ import com.google.common.collect.*;
 import lombok.Getter;
 import lombok.NonNull;
 import org.apache.commons.math.stat.descriptive.DescriptiveStatistics;
-import org.deckfour.xes.extension.std.XConceptExtension;
 import org.deckfour.xes.extension.std.XLifecycleExtension;
 import org.deckfour.xes.extension.std.XOrganizationalExtension;
 import org.deckfour.xes.extension.std.XTimeExtension;
+import org.deckfour.xes.factory.XFactory;
 import org.deckfour.xes.in.XesXmlGZIPParser;
 import org.deckfour.xes.model.*;
 import org.processmining.xeslite.external.XFactoryExternalStore;
@@ -17,7 +17,6 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.time.*;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +32,9 @@ public class XEStools {
     static private final ZonedDateTime MAXTIME = ZonedDateTime.of(LocalDateTime.MAX, ZoneId.systemDefault());
 
     private static final long EVENT_DEFAULT_DURATION = 60L;
+
+    @Getter
+    private XFactory xFactory;
 
     @Getter
     private XLog xlog;
@@ -51,20 +53,20 @@ public class XEStools {
         TRACE_NAME_LIST
     }
 
-    // cache to search for trace by concept:name
-    private Map<String, Integer> name2index = Maps.newHashMap();
-
     public XEStools() {
-        this.xlog = null;
+        this.xFactory = createXFactory();
+        this.xlog = xFactory.createLog();
     }
 
     public XEStools(@NonNull XLog xlog) {
+        this.xFactory = createXFactory();
+        this.xlog = xFactory.createLog();
         setXLog(xlog);
     }
 
     public boolean parseLog(String filename) {
         try {
-            XesXmlGZIPParser parser = new XesXmlGZIPParser(new XFactoryExternalStore.MapDBDiskImpl());
+            XesXmlGZIPParser parser = new XesXmlGZIPParser(xFactory);
             File file = new File(filename);
             if (parser.canParse(file)) {
                 InputStream inputStream = new FileInputStream(file);
@@ -84,8 +86,8 @@ public class XEStools {
      * @param xLog - new XLog
      */
     public void setXLog(@NonNull XLog xLog) {
+        // TODO ensure that log implementations match
         this.xlog = xLog;
-        clearCache();
     }
 
     /***
@@ -108,7 +110,7 @@ public class XEStools {
 
         if (xTrace.size() > 0) {
             for(XEvent xEvent: xTrace) {
-                if (eventName != null && !getAttribute(xEvent, "concept:name").equals(eventName)) continue;
+                if (eventName != null && !getConceptName(xEvent).equals(eventName)) continue;
                 ZonedDateTime current = getTimeStamp(xEvent);
 
                 if (current != null) {
@@ -177,7 +179,7 @@ public class XEStools {
 
         if (xTrace.size() > 0) {
             for(XEvent xEvent: xTrace) {
-                if (eventName != null && !getAttribute(xEvent, "concept:name").equals(eventName)) continue;
+                if (eventName != null && !getConceptName(xEvent).equals(eventName)) continue;
                 ZonedDateTime current = getTimeStamp(xEvent);
 
                 if (current != null) {
@@ -366,12 +368,10 @@ public class XEStools {
     public List<FlatXTrace> getFullTraceList(Map<FilterType, Object> filter) {
         List<FlatXTrace> traces = Lists.newArrayList();
 
-        for(XTrace current: xlog) {
-            if (filterMatch(filter, current)) {
-                FlatXTrace flatXTrace = new FlatXTrace(current);
-                traces.add(flatXTrace);
-            }
-        }
+        xlog.stream().filter(current -> filterMatch(filter, current)).forEach(current -> {
+            FlatXTrace flatXTrace = new FlatXTrace(current);
+            traces.add(flatXTrace);
+        });
 
         return traces;
     }
@@ -384,24 +384,23 @@ public class XEStools {
      * @return attribute value
      */
     static public String getTraceResource(XTrace xTrace, String attribute, String eventName) {
-        String resource = "NA";
+        String result = "NA";
 
-        Iterator eventIterator = xTrace.iterator();
-        while (eventIterator.hasNext()) {
-            XEvent xEvent = (XEvent) eventIterator.next();
-            if ( eventName != null && !getAttribute(xEvent, "concept:name").equals(eventIterator)) continue;
+        for (XEvent xEvent: xTrace) {
+            if ( eventName != null && !getConceptName(xEvent).equals(eventName)) continue;
 
             String current = (String)getAttribute(xEvent, attribute);
             if ( current == null ) continue;
-            else if ( resource.equals("NA") && !current.equals(resource)) resource = current;
-            else if ( !current.equals(resource) ) {
-                resource = "MULTI";
+
+            if ( result.equals("NA") ) result = current;
+            else if ( !current.equals(result) ) {
+                result = "MULTI";
                 break;
             }
 
         }
 
-        return resource;
+        return result;
     }
 
     /***
@@ -411,21 +410,12 @@ public class XEStools {
      */
     public XTrace getXTrace(String name) {
         XTrace xTrace = null;
-        int i = 0;
 
         if(xlog.size() > 0) {
-
-            if (name2index.containsKey(name))
-                xTrace = xlog.get(name2index.get(name));
-            else {
-                for (XTrace currentTrace: xlog) {
-                    if (getConceptName(currentTrace).equals(name)) {
-                        xTrace = currentTrace;
-                        name2index.put(name, i);
-                        break;
-                    }
-
-                    i++;
+            for (XTrace currentTrace: xlog) {
+                if (getConceptName(currentTrace).equals(name)) {
+                    xTrace = currentTrace;
+                    break;
                 }
             }
         }
@@ -495,8 +485,7 @@ public class XEStools {
         Map<String, Double> shares = Maps.newHashMap();
         Map<String, DescriptiveStatistics> buffer = Maps.newHashMap();
 
-        for(XTrace xTrace: xlog) {
-            if (filterMatch(filter, xTrace)) {
+        xlog.stream().filter(xTrace -> filterMatch(filter, xTrace)).forEach(xTrace -> {
                 Map<String, Double> traceShares = eventSharesInTrace(xTrace);
                 for (Map.Entry<String, Double> entry : traceShares.entrySet()) {
                     DescriptiveStatistics current = buffer.getOrDefault(entry.getKey(), new DescriptiveStatistics());
@@ -506,8 +495,7 @@ public class XEStools {
                             current
                     );
                 }
-            }
-        }
+        });
 
         // average share
         for (Map.Entry<String, DescriptiveStatistics> entry: buffer.entrySet()) {
@@ -542,19 +530,19 @@ public class XEStools {
      */
     static public Map<String, Double> eventDurationInTrace(XTrace xTrace) {
         Map<String, Double> durations = Maps.newHashMap();
-        Map<XEvent, ZonedDateTime> buffer = Maps.newHashMap();
+        Map<XEvent, ZonedDateTime> buffer;
 
         if (xTrace.size() > 0) {
             buffer = calculateEventsEndTime(xTrace, 0L);
 
             // calculate total event durations
-            for(Map.Entry<XEvent, ZonedDateTime> entry: buffer.entrySet()) {
-                if (getTimeStamp(entry.getKey()).isBefore(entry.getValue())) {
-                    durations.put(getConceptName(entry.getKey()),
+            buffer.entrySet().stream()
+                    .filter(entry -> getTimeStamp(entry.getKey()).isBefore(entry.getValue()))
+                    .forEach(entry -> durations.put(
+                            getConceptName(entry.getKey()),
                             durations.getOrDefault(getConceptName(entry.getKey()), 0D) +
-                                    Duration.between(getTimeStamp(entry.getKey()), entry.getValue()).getSeconds());
-                }
-            }
+                                Duration.between(getTimeStamp(entry.getKey()),
+                            entry.getValue()).getSeconds()));
         }
         return durations;
     }
@@ -576,8 +564,8 @@ public class XEStools {
 
     /***
      * Calculate workload table (resource name, time, workload in seconds)
-     * @param filter
-     * @return
+     * @param filter filter to apply to log
+     * @return list of workloads
      */
     public List<Workload> calculateResourceWorkload(Map <FilterType, Object> filter) {
         Table<String, ZonedDateTime, Workload> workloads = HashBasedTable.create();
@@ -638,36 +626,26 @@ public class XEStools {
     public List<FlatXEvent> getEventList(Map<FilterType, Object> filter) {
         List<FlatXEvent> events = Lists.newArrayList();
 
-        for (XTrace xTrace: xlog) {
-            if (filterMatch(filter, xTrace)) {
-                Map<XEvent, ZonedDateTime> eventList = calculateEventsEndTime(xTrace, EVENT_DEFAULT_DURATION);
-                for(Map.Entry<XEvent, ZonedDateTime> entry: eventList.entrySet()) {
-                    FlatXEvent event = new FlatXEvent();
-                    event.setResource((String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_RESOURCE, "NA"));
-                    event.setRole((String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_ROLE, "NA"));
-                    event.setGroup((String)getAttribute(entry.getKey(), XOrganizationalExtension.KEY_GROUP, "NA"));
-                    event.setName(getConceptName(entry.getKey()));
-                    event.setTrace(getConceptName(xTrace));
-                    event.setStart(getTimeStamp(entry.getKey()));
-                    event.setEnd(entry.getValue());
+        xlog.stream().filter(xTrace -> filterMatch(filter, xTrace)).forEach(xTrace -> {
+            Map<XEvent, ZonedDateTime> eventList = calculateEventsEndTime(xTrace, EVENT_DEFAULT_DURATION);
+            for (Map.Entry<XEvent, ZonedDateTime> entry : eventList.entrySet()) {
+                FlatXEvent event = new FlatXEvent();
+                event.setResource((String) getAttribute(entry.getKey(), XOrganizationalExtension.KEY_RESOURCE, "NA"));
+                event.setRole((String) getAttribute(entry.getKey(), XOrganizationalExtension.KEY_ROLE, "NA"));
+                event.setGroup((String) getAttribute(entry.getKey(), XOrganizationalExtension.KEY_GROUP, "NA"));
+                event.setName(getConceptName(entry.getKey()));
+                event.setTrace(getConceptName(xTrace));
+                event.setStart(getTimeStamp(entry.getKey()));
+                event.setEnd(entry.getValue());
 
-                    events.add(event);
-                }
+                events.add(event);
             }
-        }
+        });
 
         return events;
     }
 
     /* Private functions */
-
-    /***
-     * Clear all cache maps
-     */
-    private void clearCache() {
-        // clear cache
-        name2index.clear();
-    }
 
     /***
      * Apply filter to the trace. ALL condition should match. empty filter always tru
@@ -830,12 +808,15 @@ public class XEStools {
         }
 
         if (defaultDuration > 0 ) {
-            for (Map.Entry<XEvent, ZonedDateTime> entry: buffer.entrySet()) {
-                if (entry.getValue().equals(MINTIME))
-                    buffer.put(entry.getKey(), getTimeStamp(entry.getKey()).plusSeconds(defaultDuration));
-            }
+            buffer.entrySet().stream()
+                    .filter(entry -> entry.getValue().equals(MINTIME))
+                    .forEach(entry -> buffer.put(entry.getKey(), getTimeStamp(entry.getKey()).plusSeconds(defaultDuration)));
         }
 
         return buffer;
+    }
+
+    private XFactory createXFactory() {
+        return new XFactoryExternalStore.MapDBDiskImpl();
     }
 }

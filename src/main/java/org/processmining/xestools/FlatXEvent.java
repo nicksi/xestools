@@ -3,6 +3,7 @@ package org.processmining.xestools;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.deckfour.xes.model.XEvent;
 
 import java.time.ZonedDateTime;
 

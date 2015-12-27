@@ -323,7 +323,7 @@ public class XEStoolsTest
         assertTrue("First trace resource should be MULTI, got" + flatXTraceList.get(0).getOrgResource(), flatXTraceList.get(0).getOrgResource().equals("MULTI"));
         assertTrue("Second trace resource should be RES001, got" + flatXTraceList.get(1).getOrgResource(), flatXTraceList.get(1).getOrgResource().equals("RES001"));
         assertTrue("Second trace should have 3 events, got " + flatXTraceList.get(1).getEventCount(), flatXTraceList.get(1).getEventCount() == 3);
-        assertTrue("Second trace name should be test2, got " + flatXTraceList.get(1).getConceptName(), flatXTraceList.get(1).getConceptName().equals("test2"));
+        assertTrue("Second trace name should be test2, got " + flatXTraceList.get(1).getName(), flatXTraceList.get(1).getName().equals("test2"));
         assertTrue("Traces are different", !flatXTraceList.get(0).equals(flatXTraceList.get(1)));
 
         ZonedDateTime stamp = flatXTraceList.get(0).getStartTime();
